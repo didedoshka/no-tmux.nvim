@@ -26,11 +26,15 @@ local function sentinel()
     return buf
 end
 
--- terminal buffers whose shell is running something, with the child commands
+-- terminal buffers whose shell is running something, with the child commands.
+-- fzf-lua runs its picker in a terminal buffer (filetype "fzf") and can leave
+-- one behind with a live fzf in it -- a picker is never work worth saving, so
+-- it never blocks a quit (measured: leaked "Buffers" pickers blocked every :q)
 local function busy_terms()
     local busy = {}
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-        if vim.bo[buf].buftype == "terminal" and vim.b[buf].terminal_job_pid then
+        if vim.bo[buf].buftype == "terminal" and vim.bo[buf].filetype ~= "fzf"
+            and vim.b[buf].terminal_job_pid then
             local ok, children = pcall(vim.api.nvim_get_proc_children, vim.b[buf].terminal_job_pid)
             if ok and #children > 0 then
                 local names = {}

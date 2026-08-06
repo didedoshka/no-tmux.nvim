@@ -67,6 +67,26 @@ do
     vim.api.nvim_buf_delete(term, { force = true })
 end
 
+-- an fzf-lua picker terminal, even with fzf still alive in it, must not block
+do
+    local term = vim.api.nvim_create_buf(true, false)
+    vim.api.nvim_set_current_buf(term)
+    local job = vim.fn.jobstart({ "sh", "-c", "sleep 30" }, { term = true })
+    vim.bo[term].filetype = "fzf"
+    local pid = vim.b[term].terminal_job_pid
+    check("fzf shell spawned its child", vim.wait(2000, function()
+        local alive, kids = pcall(vim.api.nvim_get_proc_children, pid)
+        return alive and #kids > 0
+    end))
+
+    vim.api.nvim_exec_autocmds("QuitPre", {})
+    local buf = vim.g.quitguard_sentinel
+    check("fzf picker does not arm the guard", buf == nil or not vim.bo[buf].modified)
+
+    vim.fn.jobstop(job)
+    vim.api.nvim_buf_delete(term, { force = true })
+end
+
 -- quitguard arms its sentinel while a litre task runs, and only then
 do
     package.loaded["litre.runner"] = {
