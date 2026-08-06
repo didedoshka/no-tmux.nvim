@@ -6,9 +6,12 @@ function M.setup()
     -- The bashrc login hook repoints ~/.ssh/ssh_auth_sock at every ssh login;
     -- pinning the env to that stable path keeps ssh -A working in every
     -- terminal buffer however old the server is (tmux did this with
-    -- set-environment -g).
+    -- set-environment -g). lstat, not stat: the symlink dangles whenever the
+    -- session that created its /tmp/ssh-*/agent.* target has ended, and a
+    -- server started in that window must still pin -- the next login makes
+    -- it valid. Only a box without the symlink at all skips the pin.
     local auth_sock = vim.fs.normalize("~/.ssh/ssh_auth_sock")
-    if vim.uv.fs_stat(auth_sock) then
+    if vim.uv.fs_lstat(auth_sock) then
         vim.env.SSH_AUTH_SOCK = auth_sock
     end
 

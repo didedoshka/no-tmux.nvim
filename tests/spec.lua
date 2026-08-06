@@ -120,6 +120,14 @@ do
     require("nv.server").setup()
     check("SSH_AUTH_SOCK pinned once ~/.ssh/ssh_auth_sock exists", vim.env.SSH_AUTH_SOCK == pin)
 
+    -- the symlink dangles whenever the session that made its target has
+    -- ended; the pin must still happen -- the next login repoints it
+    vim.fn.delete(pin)
+    vim.uv.fs_symlink(home .. "/gone-agent.sock", pin)
+    vim.env.SSH_AUTH_SOCK = "/run/original-agent.sock"
+    require("nv.server").setup()
+    check("SSH_AUTH_SOCK pinned while the symlink dangles", vim.env.SSH_AUTH_SOCK == pin)
+
     vim.env.HOME = saved_home
     vim.env.SSH_AUTH_SOCK = saved_sock
     vim.fn.delete(home, "rf")

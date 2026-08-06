@@ -62,4 +62,6 @@ it kills is appended to `stdpath("state")/killed-jobs.txt` with cwd and command.
 
 Pinned server-side to `~/.ssh/ssh_auth_sock`; a bashrc login hook repoints that symlink at
 every ssh login, so terminal buffers keep a working agent however old the server is (tmux
-did this with `set-environment -g`).
+did this with `set-environment -g`). The pin happens whenever the symlink itself exists,
+even dangling — a server started after its agent died still heals at the next login. Only
+a box without the symlink at all is left alone.

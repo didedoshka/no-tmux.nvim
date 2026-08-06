@@ -146,6 +146,37 @@ check "SSH_AUTH_SOCK untouched without the symlink" \
     "$(rexpr "$sock_b" '$SSH_AUTH_SOCK')" "$tmp/original-agent.sock"
 nvim --server "$sock_b" --remote-send ':qa!<CR>' 2>/dev/null
 
+# --- server C: dangling symlink at startup ------------------------------------
+# The real ~/.ssh/ssh_auth_sock is a symlink into /tmp/ssh-*/agent.*, and sshd
+# removes that target when its session ends. A server started in that window
+# must still pin: the next ssh login repoints the symlink and the pin becomes
+# valid -- skipping it would freeze the stale inherited value in forever.
+home_c="$tmp/c"
+mkdir -p "$home_c/.ssh"
+ln -s "$tmp/gone-session-agent.sock" "$home_c/.ssh/ssh_auth_sock"
+sock_c="$home_c/cache/nvim/servers/%proj%c"
+export SSH_AUTH_SOCK="$tmp/stale-agent.sock"
+start_server "$home_c" "$sock_c"
+
+check "SSH_AUTH_SOCK pinned while the symlink dangles" \
+    "$(rexpr "$sock_c" '$SSH_AUTH_SOCK')" "$home_c/.ssh/ssh_auth_sock"
+
+# "next ssh login": the hook repoints the symlink; a terminal job spawned now
+# must reach the fresh agent through the pin
+touch "$tmp/fresh-agent.sock"
+ln -sf "$tmp/fresh-agent.sock" "$home_c/.ssh/ssh_auth_sock"
+cat > "$tmp/term-c.lua" <<EOF
+local buf = vim.api.nvim_create_buf(true, false)
+vim.api.nvim_set_current_buf(buf)
+vim.fn.jobstart({ "sh", "-c", "readlink -f \"\$SSH_AUTH_SOCK\" > '$tmp/term-env-c'" }, { term = true })
+return 1
+EOF
+rlua "$sock_c" "$tmp/term-c.lua"
+for _ in $(seq 50); do [[ -s "$tmp/term-env-c" ]] && break; sleep 0.1; done
+check "terminal job reaches the repointed agent" \
+    "$(cat "$tmp/term-env-c" 2>/dev/null)" "$(readlink -f "$tmp/fresh-agent.sock")"
+nvim --server "$sock_c" --remote-send ':qa!<CR>' 2>/dev/null
+
 if (( failed > 0 )); then
     echo "$failed e2e checks failed"
     exit 1
