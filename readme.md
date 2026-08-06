@@ -65,7 +65,8 @@ current one shows `(this)`. The source is `require("nv.server").source`.
 
 A server `:qa` kills running jobs silently. On `QuitPre`, while any terminal shell has a
 running child or a litre task is alive, the quit fails (E37 via a hidden modified sentinel
-buffer) and a notify names the jobs; an idle shell does not block. `:qa!` overrides — what
+buffer) and a notify names the jobs; an idle shell and an fzf-lua picker terminal
+(filetype `fzf`) do not block. `:qa!` overrides — what
 it kills is appended to `stdpath("state")/killed-jobs.txt` with cwd and command.
 
 ## SSH_AUTH_SOCK
