@@ -46,10 +46,20 @@ as `%`.
 | --- | --- |
 | `:Restart` | `:restart` with the layout preserved: mksession (terminals excluded — restoring would respawn jobs) + `restart source` |
 | `:Connect` | hop this UI to another live server, `vim.ui.select` picker |
-| `:FzfConnect` | same hop, fzf-lua `fzf_exec` picker |
+| `:FzfConnect` | the pinned-servers picker (below); warns when there is nothing to list |
 
 Trap, measured: `:connect` %-expands its argument, and every socket name contains `%` — all
 hops go through `fnameescape` (E499 otherwise).
+
+## Pinned servers
+
+`:FzfConnect` opens an [fzf-pin](../fzf-pin.nvim) picker: pinned servers first as
+`[e] /path/to/project`, then the other live ones. A pinned char hops immediately; a free
+char pins the *current* server to that char (refused when this instance's socket is not an
+nv one); `ctrl-x` unpins; `i` drops into fuzzy search. Pins are stored globally by project
+label — the fzf-pin store, `servers` namespace — so they survive socket churn across
+restarts. A pinned server with no live socket shows `(down)` and refuses the hop; the
+current one shows `(this)`. The source is `require("nv.server").source`.
 
 ## quitguard
 

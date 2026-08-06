@@ -166,6 +166,53 @@ if vim.fn.exists(":connect") == 2 then
         items ~= nil and items[1] ~= nil and items[1].label == "/data/project/x")
 end
 
+-- The fzf-pin server source: pins render first with their chars and a
+-- liveness marker, free-char pinning is guarded, unpin round-trips the store.
+-- The sibling checkout is the dependency, like lazy.nvim loads it for real.
+-- run.sh sandboxes XDG_STATE_HOME, so the real pins are never touched.
+do
+    vim.opt.rtp:prepend(vim.fn.expand("~/personal/fzf-pin.nvim"))
+    local store = require("fzf-pin.store")
+    local source = require("nv.server").source
+
+    local dir = vim.fs.joinpath(vim.fn.stdpath("cache"), "servers")
+    vim.fn.mkdir(dir, "p")
+    vim.fn.writefile({}, vim.fs.joinpath(dir, "%data%project%x"))
+
+    store.save("servers", { e = "/data/project/gone" })
+    local items = source.list()
+    check("source: pin listed first with its char",
+        items[1] ~= nil and items[1].char == "e")
+    check("source: dead pin marked down",
+        items[1] ~= nil and items[1].label == "/data/project/gone  (down)")
+    check("source: live socket listed after the pins",
+        items[2] ~= nil and items[2].char == nil and items[2].label == "/data/project/x")
+
+    store.save("servers", { e = "/data/project/x" })
+    items = source.list()
+    check("source: a pinned live server appears once, keyed",
+        #items == 1 and items[1].char == "e" and items[1].label == "/data/project/x")
+
+    -- under --clean this instance's socket is not in the servers dir, so
+    -- pinning must refuse instead of storing a garbage label
+    local notified
+    local saved_notify = vim.notify
+    ---@diagnostic disable-next-line: duplicate-set-field
+    vim.notify = function(msg, _level, _opts)
+        notified = msg
+    end
+    source.pin("a")
+    vim.notify = saved_notify
+    check("source: pin refused outside an nv socket",
+        notified ~= nil and notified:find("nothing to pin") ~= nil)
+    check("source: refused pin stored nothing", store.load("servers").a == nil)
+
+    check("source: unpin removes the char and asks for a reopen",
+        source.unpin({ char = "e" }) == true and store.load("servers").e == nil)
+    check("source: unpin on an unpinned entry is a no-op",
+        source.unpin({ label = "/data/project/x" }) == nil)
+end
+
 if failed > 0 then
     print(("%d checks failed"):format(failed))
     os.exit(1)

@@ -2,6 +2,117 @@
 -- and hopping the UI between servers (:Connect / :FzfConnect).
 local M = {}
 
+local function servers_dir()
+    return vim.fs.joinpath(vim.fn.stdpath("cache"), "servers")
+end
+
+-- socket names are the project path, / encoded as %
+local function decode(name)
+    return (name:gsub("%%", "/"))
+end
+local function encode(label)
+    return (label:gsub("/", "%%"))
+end
+
+local function other_servers()
+    local servers = {}
+    for name in vim.fs.dir(servers_dir()) do
+        local path = vim.fs.joinpath(servers_dir(), name)
+        if path ~= vim.v.servername then
+            table.insert(servers, { path = path, label = decode(name) })
+        end
+    end
+    return servers
+end
+
+-- nil when this instance's socket does not live in the servers dir (a server
+-- started outside `nv` has no label to pin)
+local function current_label()
+    local name = vim.v.servername or ""
+    if vim.fs.dirname(name) ~= servers_dir() then
+        return nil
+    end
+    return decode(vim.fs.basename(name))
+end
+
+-- :connect %-expands its argument, and every socket name contains % --
+-- fnameescape or the hop dies with E499 (verified live).
+local function hop(path)
+    vim.cmd("connect " .. vim.fn.fnameescape(path))
+end
+
+-- The server list as an fzf-pin source: pins first (chars persisted globally
+-- by project label -- sockets churn on restarts, labels do not), then the
+-- other live servers. A free char pins the current server, ctrl-x unpins.
+M.source = {
+    prompt = "servers> ",
+    list = function()
+        local pins = require("fzf-pin.store").load("servers")
+        local live = {}
+        for _, s in ipairs(other_servers()) do
+            live[s.label] = true
+        end
+        local cur = current_label()
+        local chars = vim.tbl_keys(pins)
+        table.sort(chars)
+        local items, pinned = {}, {}
+        for _, c in ipairs(chars) do
+            local label = pins[c]
+            pinned[label] = true
+            local state = label == cur and "  (this)"
+                or not live[label] and "  (down)" or ""
+            table.insert(items, { label = label .. state, char = c, data = label })
+        end
+        for _, s in ipairs(other_servers()) do
+            if not pinned[s.label] then
+                table.insert(items, { label = s.label, data = s.label })
+            end
+        end
+        return items
+    end,
+    activate = function(item)
+        if item.data == current_label() then
+            return
+        end
+        local path = vim.fs.joinpath(servers_dir(), encode(item.data))
+        if not vim.uv.fs_stat(path) then
+            vim.notify("no server for " .. item.data, vim.log.levels.WARN)
+            return
+        end
+        hop(path)
+    end,
+    pin = function(char)
+        local store = require("fzf-pin.store")
+        local cur = current_label()
+        if not cur then
+            vim.notify("current server is not an nv socket -- nothing to pin",
+                vim.log.levels.WARN)
+            return
+        end
+        local pins = store.load("servers")
+        for c, label in pairs(pins) do
+            if label == cur then
+                vim.notify("already pinned on " .. c .. " (ctrl-x it to move)",
+                    vim.log.levels.WARN)
+                return
+            end
+        end
+        pins[char] = cur
+        store.save("servers", pins)
+        vim.notify(("pinned %s to %s"):format(cur, char))
+    end,
+    unpin = function(item)
+        if not item.char then
+            return
+        end
+        local store = require("fzf-pin.store")
+        local pins = store.load("servers")
+        pins[item.char] = nil
+        store.save("servers", pins)
+        return true
+    end,
+}
+
 function M.setup()
     -- The bashrc login hook repoints ~/.ssh/ssh_auth_sock at every ssh login;
     -- pinning the env to that stable path keeps ssh -A working in every
@@ -33,25 +144,6 @@ function M.setup()
     -- Hop this UI to another project's server (sockets live where `nv` puts
     -- them) -- the tmux switch-client analogue.
     if vim.fn.exists(":connect") == 2 then
-        local function other_servers()
-            local dir = vim.fs.joinpath(vim.fn.stdpath("cache"), "servers")
-            local servers = {}
-            for name in vim.fs.dir(dir) do
-                local path = vim.fs.joinpath(dir, name)
-                if path ~= vim.v.servername then
-                    -- socket names are the project path, / encoded as %
-                    table.insert(servers, { path = path, label = (name:gsub("%%", "/")) })
-                end
-            end
-            return servers
-        end
-
-        -- :connect %-expands its argument, and every socket name contains % --
-        -- fnameescape or the hop dies with E499 (verified live).
-        local function hop(path)
-            vim.cmd("connect " .. vim.fn.fnameescape(path))
-        end
-
         vim.api.nvim_create_user_command("Connect", function()
             local servers = other_servers()
             if #servers == 0 then
@@ -71,27 +163,11 @@ function M.setup()
         end, {})
 
         vim.api.nvim_create_user_command("FzfConnect", function()
-            local servers = other_servers()
-            if #servers == 0 then
+            if #M.source.list() == 0 then
                 vim.notify("no other servers", vim.log.levels.WARN)
                 return
             end
-            local by_label = {}
-            local labels = {}
-            for _, s in ipairs(servers) do
-                by_label[s.label] = s.path
-                table.insert(labels, s.label)
-            end
-            require("fzf-lua").fzf_exec(labels, {
-                prompt = "connect> ",
-                actions = {
-                    default = function(selected)
-                        if selected[1] then
-                            hop(by_label[selected[1]])
-                        end
-                    end,
-                },
-            })
+            require("fzf-pin").pick(M.source)
         end, {})
     end
 end

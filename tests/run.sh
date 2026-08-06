@@ -35,10 +35,12 @@ fi
 
 if [[ "$what" == "all" || "$what" == "spec" ]]; then
     echo "== spec (nvim --clean)"
-    # sandboxed cache: the spec fabricates sockets in stdpath("cache")/servers
-    # and must never see (or list) the real ones
+    # sandboxed cache and state: the spec fabricates sockets in
+    # stdpath("cache")/servers and pins through the fzf-pin store in
+    # stdpath("state") -- it must never see (or write) the real ones
     cache="$(mktemp -d)"
-    XDG_CACHE_HOME="$cache" timeout 120 nvim --clean --headless -l "$repo"/tests/spec.lua || rc=1
+    XDG_CACHE_HOME="$cache" XDG_STATE_HOME="$cache/state" \
+        timeout 120 nvim --clean --headless -l "$repo"/tests/spec.lua || rc=1
     rm -rf "$cache"
 fi
 
