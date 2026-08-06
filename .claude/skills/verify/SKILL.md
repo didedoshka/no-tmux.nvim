@@ -44,8 +44,8 @@ check by hand:
   hop works — a hop that "returned" can still have left zero UIs attached.
 - **`:Connect` escaping**: every socket name contains `%`; a path that avoids
   `fnameescape` is E499 in a live client even though the spec passes.
-- **the fish half** (`nt a`, `nt ls`, `nt ssh`): the tests never touch fish.
-  Exercise from a real shell; `nt ssh` additionally needs an ssh session.
+- **the fish half** (`nt`, `nt --ls`): the tests never touch fish.
+  Exercise from a real shell; the iTerm ssh line additionally needs an ssh session.
 - **SSH_AUTH_SOCK against a real agent**: e2e proves the pin mechanics; that
   `ssh -A` actually authenticates from a terminal buffer in a server that
   outlived its original ssh session still needs a human.

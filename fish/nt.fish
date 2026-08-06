@@ -1,31 +1,18 @@
 # no-tmux client: per-project nvim servers instead of tmux sessions.
-# Shaped like tmux -- `nt a` attaches, `nt ls` lists, `nt ssh` is the entry
-# point -- and bare `nt` is `nt a` on the cwd. readme.md is the spec.
-function nt --description "no-tmux: per-project nvim servers (a|ls|ssh)"
-    set -l cmd a
-    if test (count $argv) -gt 0
-        set cmd $argv[1]
-        set -e argv[1]
+# One verb -- `nt [dir]` starts-or-attaches, the tmux new/attach analogue (see
+# notes/nvim-as-tmux.md) -- plus `nt --ls`, which is rare enough not to earn a
+# subcommand. The ssh entry point is a raw line in the iTerm profile
+# (readme.md), not a function here: the laptop holds no checkout.
+#
+# The server is detached from this login session (setsid) so ssh death never
+# reaches it; the TUI client here is disposable: :detach or a dropped ssh
+# leaves the server running.
+function nt --description "attach to the project nvim server, starting it if needed"
+    if test "$argv[1]" = --ls
+        __nt_ls
+        return
     end
 
-    switch $cmd
-        case a attach
-            __nt_attach $argv
-        case ls list
-            __nt_ls
-        case ssh
-            __nt_ssh $argv
-        case '*'
-            echo "nt: unknown subcommand '$cmd' (expected a, ls or ssh)" >&2
-            return 1
-    end
-end
-
-# Attach to the per-project server for a directory, starting it if needed --
-# the tmux new/attach analogue (see notes/nvim-as-tmux.md). The server is
-# detached from this login session (setsid) so ssh death never reaches it; the
-# TUI client here is disposable: :detach or a dropped ssh leaves it running.
-function __nt_attach
     if test (count $argv) -gt 0
         set -f dir (realpath $argv[1]); or return 1
     else
@@ -72,12 +59,4 @@ function __nt_ls
             echo "$name (dead, removed)"
         end
     end
-end
-
-# iTerm entry point: ssh, then land in the home server -- the `tmux a || tmux`
-# analogue. Worktree prep happens in a terminal tab there; `nt a <dir>` from
-# that terminal hops this UI to the project server. After :detach (or if the
-# server ever refuses to start) fish -C leaves an interactive shell on the box.
-function __nt_ssh --wraps ssh
-    ssh $argv -t '~/.local/bin/fish -C "nt a ~"'
 end

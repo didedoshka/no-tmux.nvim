@@ -31,16 +31,33 @@ fish half: symlink the function into the autoload dir —
 
 ## fish commands
 
-Shaped like tmux: one `nt` entry point with subcommands. Bare `nt` is `nt a` on the cwd.
-
 | command | does |
 | --- | --- |
-| `nt a [dir]` | start-or-attach the server for `dir` (default: cwd). Inside a `:terminal` (`$NVIM` set) it starts the server and swings the host's UI there instead of nesting a TUI |
-| `nt ls` | list servers with liveness; dead sockets are pruned on sight |
-| `nt ssh <ssh args>` | ssh wrapper: land in the home (`~`) server — the `tmux a \|\| tmux` analogue. Worktree prep happens in a terminal tab there, then `nt a <dir>` hops onward. `:detach` drops to an interactive shell on the box |
+| `nt [dir]` | start-or-attach the server for `dir` (default: cwd). Inside a `:terminal` (`$NVIM` set) it starts the server and swings the host's UI there instead of nesting a TUI |
+| `nt --ls` | list servers with liveness; dead sockets are pruned on sight |
+
+One verb and one flag, not subcommands: attaching is the whole daily surface, and `--ls` is
+rare. Nothing else is planned.
 
 Sockets live at `~/.cache/nvim/servers/`, named by absolute project path with `/` encoded
 as `%`.
+
+## Connecting from the laptop
+
+The laptop is a terminal and ssh, nothing else — no checkout, no functions. The iTerm
+profile does the whole `tmux a || tmux` job with **Command: `Login Shell`** and **Send text
+at start**:
+
+    ssh <host> -t '~/.local/bin/fish -C "nt ~"'
+
+Every connection lands in the server rooted at `~`, the hub: worktree prep happens in a
+terminal tab there (surviving disconnects, unlike a raw ssh shell), then `nt <dir>` hops
+onward. `~/.local/bin/fish` is the *remote* fish. `fish -C` rather than `exec` so that
+`:detach` — or a server that refuses to start — leaves an interactive shell on the box;
+`Login Shell` rather than putting the ssh in iTerm's `Command` field so a dropped
+connection lands back at a local prompt. Don't use iTerm's `SSH` profile type: it injects
+shell integration and wants python3 remotely, both pointless when the login immediately
+becomes a UI client.
 
 ## nvim commands
 

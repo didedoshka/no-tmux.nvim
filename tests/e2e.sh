@@ -51,7 +51,7 @@ rexpr() { nvim --server "$1" --remote-expr "$2" 2>/dev/null; }
 # run a lua file inside the server; the file must end with `return 1`
 rlua() { rexpr "$1" "luaeval('dofile(_A)', '$2')" >/dev/null; }
 
-# --- server A: pinned agent sock, sockets dir laid out like `nt a` does -------
+# --- server A: pinned agent sock, sockets dir laid out like `nt` does -------
 home_a="$tmp/a"
 mkdir -p "$home_a/.ssh"
 touch "$home_a/.ssh/ssh_auth_sock"     # production is a symlink; stats the same
