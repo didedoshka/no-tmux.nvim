@@ -233,6 +233,32 @@ do
         source.unpin({ label = "/data/project/x" }) == nil)
 end
 
+-- The :q/:qa habit block. setup() above ran outside a server (v:servername is
+-- not in the servers dir), so it must have installed nothing -- then install
+-- it by hand and check the three behaviours. The bang paths really quit and
+-- so cannot be exercised here; they are covered live (see CLAUDE.md).
+do
+    check("habit not installed outside an nt server", vim.api.nvim_get_commands({}).NtQ == nil)
+
+    require("no-tmux.habit").setup()
+    local cmds2 = vim.api.nvim_get_commands({})
+    check("habit: NtQ registered", cmds2.NtQ ~= nil)
+    check("habit: NtQa registered", cmds2.NtQa ~= nil)
+    check("habit: q abbreviated", vim.api.nvim_exec2("cabbrev q", { output = true }).output:find("NtQ") ~= nil)
+    check("habit: qa abbreviated", vim.api.nvim_exec2("cabbrev qa", { output = true }).output:find("NtQa") ~= nil)
+
+    check("habit: :qa nags instead of quitting",
+        vim.trim(vim.api.nvim_exec2("NtQa", { output = true }).output) == "habit")
+
+    -- :q closes a split as always; it only nags when it would end the session
+    vim.cmd("split")
+    local before = #vim.api.nvim_tabpage_list_wins(0)
+    vim.cmd("NtQ")
+    check("habit: :q still closes a split", #vim.api.nvim_tabpage_list_wins(0) == before - 1)
+    check("habit: :q nags on the last window",
+        vim.trim(vim.api.nvim_exec2("NtQ", { output = true }).output) == "habit")
+end
+
 if failed > 0 then
     print(("%d checks failed"):format(failed))
     os.exit(1)

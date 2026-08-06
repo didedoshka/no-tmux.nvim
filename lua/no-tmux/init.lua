@@ -5,8 +5,12 @@
 local M = {}
 
 function M.setup()
-    require("no-tmux.server").setup()
+    local server = require("no-tmux.server")
+    server.setup()
     require("no-tmux.quitguard").setup()
+    if server.is_nt_server() then
+        require("no-tmux.habit").setup()
+    end
 end
 
 return M

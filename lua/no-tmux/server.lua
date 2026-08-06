@@ -35,6 +35,12 @@ local function current_label()
     return decode(vim.fs.basename(name))
 end
 
+-- true only in a server `nt` started, which is the one place where quitting is
+-- the wrong reflex (habit.lua) -- a throwaway `nvim file.txt` is not one
+function M.is_nt_server()
+    return current_label() ~= nil
+end
+
 -- :connect %-expands its argument, and every socket name contains % --
 -- fnameescape or the hop dies with E499 (verified live).
 local function hop(path)

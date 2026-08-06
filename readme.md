@@ -96,7 +96,17 @@ buffer) and a notify names the jobs; an idle shell and an fzf-lua picker termina
 (filetype `fzf`) do not block. `:qa!` overrides — what
 it kills is appended to `stdpath("state")/killed-jobs.txt` with cwd and command.
 
-## SSH_AUTH_SOCK
+## habit
+
+`:qa` is the tmux-era reflex and now kills the session everything lives in; the move is
+`:detach`. So `:q` and `:qa` print `habit` instead, like the config's `s`/`S`/`<C-o>`, and
+only inside a server `nt` started — a throwaway `nvim file.txt` still quits normally.
+
+Two exceptions, both deliberate: `:q` with another window or tab open closes the window as
+always (there is no habit to unlearn in closing a split — it nags only when the quit would
+end the session), and the `!` forms are untouched, since `:qa!` is the considered override
+and the one quitguard points you at. Implemented as cmdline abbreviations to `:NtQ`/`:NtQa`,
+which take a bang and pass it through; typed cmdline only, so a plugin's `:qa` still quits.
 
 Pinned server-side to `~/.ssh/ssh_auth_sock`; a bashrc login hook repoints that symlink at
 every ssh login, so terminal buffers keep a working agent however old the server is (tmux
