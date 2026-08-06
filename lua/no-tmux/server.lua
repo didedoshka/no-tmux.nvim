@@ -26,7 +26,7 @@ local function other_servers()
 end
 
 -- nil when this instance's socket does not live in the servers dir (a server
--- started outside `nv` has no label to pin)
+-- started outside `nt` has no label to pin)
 local function current_label()
     local name = vim.v.servername or ""
     if vim.fs.dirname(name) ~= servers_dir() then
@@ -85,7 +85,7 @@ M.source = {
         local store = require("fzf-pin.store")
         local cur = current_label()
         if not cur then
-            vim.notify("current server is not an nv socket -- nothing to pin",
+            vim.notify("current server is not a no-tmux socket -- nothing to pin",
                 vim.log.levels.WARN)
             return
         end
@@ -141,7 +141,7 @@ function M.setup()
         end, {})
     end
 
-    -- Hop this UI to another project's server (sockets live where `nv` puts
+    -- Hop this UI to another project's server (sockets live where `nt` puts
     -- them) -- the tmux switch-client analogue.
     if vim.fn.exists(":connect") == 2 then
         vim.api.nvim_create_user_command("Connect", function()

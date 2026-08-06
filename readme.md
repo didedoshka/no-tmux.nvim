@@ -21,21 +21,23 @@ lazy.nvim, local checkout:
     {
         dir = vim.fn.expand("~/personal/no-tmux.nvim"),
         config = function()
-            require("nv").setup()
+            require("no-tmux").setup()
         end,
     }
 
-fish half: symlink the functions into the autoload dir —
+fish half: symlink the function into the autoload dir —
 
-    ln -s ~/personal/no-tmux.nvim/fish/{nv,nvls,nvsh}.fish ~/.config/fish/functions/
+    ln -s ~/personal/no-tmux.nvim/fish/nt.fish ~/.config/fish/functions/
 
 ## fish commands
 
+Shaped like tmux: one `nt` entry point with subcommands. Bare `nt` is `nt a` on the cwd.
+
 | command | does |
 | --- | --- |
-| `nv [dir]` | start-or-attach the server for `dir` (default: cwd). Inside a `:terminal` (`$NVIM` set) it starts the server and swings the host's UI there instead of nesting a TUI |
-| `nvls` | list servers with liveness; dead sockets are pruned on sight |
-| `nvsh <ssh args>` | ssh wrapper: land in the home (`~`) server — the `tmux a \|\| tmux` analogue. Worktree prep happens in a terminal tab there, then `nv <dir>` hops onward. `:detach` drops to an interactive shell on the box |
+| `nt a [dir]` | start-or-attach the server for `dir` (default: cwd). Inside a `:terminal` (`$NVIM` set) it starts the server and swings the host's UI there instead of nesting a TUI |
+| `nt ls` | list servers with liveness; dead sockets are pruned on sight |
+| `nt ssh <ssh args>` | ssh wrapper: land in the home (`~`) server — the `tmux a \|\| tmux` analogue. Worktree prep happens in a terminal tab there, then `nt a <dir>` hops onward. `:detach` drops to an interactive shell on the box |
 
 Sockets live at `~/.cache/nvim/servers/`, named by absolute project path with `/` encoded
 as `%`.
@@ -55,11 +57,12 @@ hops go through `fnameescape` (E499 otherwise).
 
 `:FzfConnect` opens an [fzf-pin](../fzf-pin.nvim) picker: pinned servers first as
 `[e] /path/to/project`, then the other live ones. A pinned char hops immediately; a free
-char pins the *current* server to that char (refused when this instance's socket is not an
-nv one); `ctrl-x` unpins; `i` drops into fuzzy search. Pins are stored globally by project
+char pins the *current* server to that char (refused when this instance's socket is not a
+no-tmux one); `ctrl-x` unpins; `i` drops into fuzzy search. Pins are stored globally by
+project
 label — the fzf-pin store, `servers` namespace — so they survive socket churn across
 restarts. A pinned server with no live socket shows `(down)` and refuses the hop; the
-current one shows `(this)`. The source is `require("nv.server").source`.
+current one shows `(this)`. The source is `require("no-tmux.server").source`.
 
 ## quitguard
 

@@ -5,9 +5,9 @@ commands (fish/). Personal project, single user, loaded from a local checkout vi
 lazy.nvim. Extracted from the nvim config's `plugin/` 2026-08-06.
 
 ## Layout
-- `lua/nv/init.lua` — `setup()`, nothing else. `server.lua` = SSH_AUTH_SOCK pin, `:Restart`,
+- `lua/no-tmux/init.lua` — `setup()`, nothing else. `server.lua` = SSH_AUTH_SOCK pin, `:Restart`,
   `:Connect`/`:FzfConnect`. `quitguard.lua` = the `:qa` job guard.
-- `fish/` — canonical `nv`/`nvls`/`nvsh`; `~/.config/fish/functions/` holds symlinks here.
+- `fish/` — canonical `nt` (subcommands `a`/`ls`/`ssh` + helpers in one file); `~/.config/fish/functions/` holds symlinks here.
 - **`readme.md` is the spec** — a behaviour change is incomplete until it matches.
 - `notes/nvim-as-tmux.md` — the research and dated implementation log.
 

@@ -1,9 +1,9 @@
 ---
 name: verify
-description: Verify an nv change actually works — the offline suite always, plus the live checks that need real servers, a real UI client, or the fish side.
+description: Verify a no-tmux change actually works — the offline suite always, plus the live checks that need real servers, a real UI client, or the fish side.
 ---
 
-# Verifying nv
+# Verifying no-tmux
 
 ## Tier 1 — offline, always run this
 
@@ -44,8 +44,8 @@ check by hand:
   hop works — a hop that "returned" can still have left zero UIs attached.
 - **`:Connect` escaping**: every socket name contains `%`; a path that avoids
   `fnameescape` is E499 in a live client even though the spec passes.
-- **the fish half** (`nv`, `nvls`, `nvsh`): the tests never touch fish.
-  Exercise from a real shell; `nvsh` additionally needs an ssh session.
+- **the fish half** (`nt a`, `nt ls`, `nt ssh`): the tests never touch fish.
+  Exercise from a real shell; `nt ssh` additionally needs an ssh session.
 - **SSH_AUTH_SOCK against a real agent**: e2e proves the pin mechanics; that
   `ssh -A` actually authenticates from a terminal buffer in a server that
   outlived its original ssh session still needs a human.

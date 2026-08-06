@@ -36,7 +36,7 @@ start_server() {
     HOME="$home" XDG_CACHE_HOME="$home/cache" XDG_STATE_HOME="$home/state" \
     XDG_DATA_HOME="$home/data" XDG_CONFIG_HOME="$home/config" \
         nvim --clean --headless --listen "$sock" \
-            --cmd "set rtp+=$repo" +"lua require('nv').setup()" \
+            --cmd "set rtp+=$repo" +"lua require('no-tmux').setup()" \
             >/dev/null 2>&1 &
     pids+=($!)
     for _ in $(seq 100); do
@@ -51,7 +51,7 @@ rexpr() { nvim --server "$1" --remote-expr "$2" 2>/dev/null; }
 # run a lua file inside the server; the file must end with `return 1`
 rlua() { rexpr "$1" "luaeval('dofile(_A)', '$2')" >/dev/null; }
 
-# --- server A: pinned agent sock, sockets dir laid out like `nv` does -------
+# --- server A: pinned agent sock, sockets dir laid out like `nt a` does -------
 home_a="$tmp/a"
 mkdir -p "$home_a/.ssh"
 touch "$home_a/.ssh/ssh_auth_sock"     # production is a symlink; stats the same

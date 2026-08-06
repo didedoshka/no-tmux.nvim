@@ -14,7 +14,7 @@ local function check(name, ok)
     end
 end
 
-require("nv").setup()
+require("no-tmux").setup()
 
 -- commands are existence-gated on the host build's :connect/:restart
 local cmds = vim.api.nvim_get_commands({})
@@ -24,7 +24,7 @@ check(":Restart registered", vim.fn.exists(":restart") ~= 2 or cmds.Restart ~= n
 check("quitguard QuitPre+VimLeavePre", #vim.api.nvim_get_autocmds({ group = "quitguard" }) == 2)
 
 -- re-running setup must not error or duplicate autocmds
-require("nv").setup()
+require("no-tmux").setup()
 check("setup re-runs cleanly", #vim.api.nvim_get_autocmds({ group = "quitguard" }) == 2)
 
 -- an idle instance must not be blocked from quitting: QuitPre with no busy
@@ -131,13 +131,13 @@ do
     vim.env.HOME = home
     vim.env.SSH_AUTH_SOCK = "/run/original-agent.sock"
 
-    require("nv.server").setup()
+    require("no-tmux.server").setup()
     check("SSH_AUTH_SOCK untouched while ~/.ssh/ssh_auth_sock is absent",
         vim.env.SSH_AUTH_SOCK == "/run/original-agent.sock")
 
     local pin = home .. "/.ssh/ssh_auth_sock"
     vim.fn.writefile({}, pin)
-    require("nv.server").setup()
+    require("no-tmux.server").setup()
     check("SSH_AUTH_SOCK pinned once ~/.ssh/ssh_auth_sock exists", vim.env.SSH_AUTH_SOCK == pin)
 
     -- the symlink dangles whenever the session that made its target has
@@ -145,7 +145,7 @@ do
     vim.fn.delete(pin)
     vim.uv.fs_symlink(home .. "/gone-agent.sock", pin)
     vim.env.SSH_AUTH_SOCK = "/run/original-agent.sock"
-    require("nv.server").setup()
+    require("no-tmux.server").setup()
     check("SSH_AUTH_SOCK pinned while the symlink dangles", vim.env.SSH_AUTH_SOCK == pin)
 
     vim.env.HOME = saved_home
@@ -193,7 +193,7 @@ end
 do
     vim.opt.rtp:prepend(vim.fn.expand("~/personal/fzf-pin.nvim"))
     local store = require("fzf-pin.store")
-    local source = require("nv.server").source
+    local source = require("no-tmux.server").source
 
     local dir = vim.fs.joinpath(vim.fn.stdpath("cache"), "servers")
     vim.fn.mkdir(dir, "p")
@@ -223,7 +223,7 @@ do
     end
     source.pin("a")
     vim.notify = saved_notify
-    check("source: pin refused outside an nv socket",
+    check("source: pin refused outside a no-tmux socket",
         notified ~= nil and notified:find("nothing to pin") ~= nil)
     check("source: refused pin stored nothing", store.load("servers").a == nil)
 

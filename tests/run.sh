@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Offline checks for nv: static analysis + the spec. No network, no live
+# Offline checks for no-tmux: static analysis + the spec. No network, no live
 # servers -- safe anywhere. There is no standalone lua on this box:
 # `nvim --clean -l` is the Lua runtime.
 #

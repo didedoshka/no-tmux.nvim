@@ -74,9 +74,9 @@ per-session var ever matters, the attach wrapper can push it before attaching:
 - `plugin/server.lua`: pins SSH_AUTH_SOCK to the symlink; `:Restart` =
   mksession (terminals excluded) + `:restart source`; `:Connect` = pick
   another project server from `stdpath("cache")/servers` and hop.
-- fish: `nv [dir]` starts (detached, socket at
+- fish: `nt a [dir]` starts (detached, socket at
   `~/.cache/nvim/servers/<path with / as %>`) and/or attaches with
-  `--remote-ui`; `nvls` lists servers with liveness. Detach: `:detach` or
+  `--remote-ui`; `nt ls` lists servers with liveness. Detach: `:detach` or
   just kill the ssh.
 - `<leader>m` still runs plain `:restart` (loses layout); switch it to
   `:Restart` after the session flow proves itself.
@@ -87,11 +87,11 @@ per-session var ever matters, the attach wrapper can push it before attaching:
 
 The `tmux a || tmux` analogue: every connection lands in a server rooted at `~`,
 which acts as the hub — worktree prep happens in a terminal tab there (and so
-survives disconnects, unlike a raw ssh shell), then `nv <dir>` hops onward.
+survives disconnects, unlike a raw ssh shell), then `nt a <dir>` hops onward.
 
-- fish `nvsh` (replaces tmuxsh in iTerm): `ssh <host> -t 'fish -C "nv ~"'`.
+- fish `nt ssh` (replaces tmuxsh in iTerm): `ssh <host> -t 'fish -C "nt a ~"'`.
   After `:detach`, `fish -C` leaves an interactive shell on the box.
-- `nv` run inside a `:terminal` (`$NVIM` set) no longer nests a TUI: it starts
+- `nt a` run inside a `:terminal` (`$NVIM` set) no longer nests a TUI: it starts
   the target server, then swings the host's UI there with
   `nvim --server $NVIM --remote-expr "execute('connect <sock>')"` (verified
   live: the UI count moves from one server to the other).
