@@ -3,9 +3,12 @@
 # servers -- safe anywhere. There is no standalone lua on this box:
 # `nvim --clean -l` is the Lua runtime.
 #
-#   tests/run.sh          both tiers
+#   tests/run.sh          both offline tiers
 #   tests/run.sh spec     just the spec
 #   tests/run.sh check    just lua-language-server
+#   tests/run.sh e2e      live detached headless servers (tests/e2e.sh) --
+#                         still offline and sandboxed, but slower, so not
+#                         part of "all" (the edit hook runs "all")
 set -uo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -32,7 +35,16 @@ fi
 
 if [[ "$what" == "all" || "$what" == "spec" ]]; then
     echo "== spec (nvim --clean)"
-    timeout 120 nvim --clean --headless -l "$repo"/tests/spec.lua || rc=1
+    # sandboxed cache: the spec fabricates sockets in stdpath("cache")/servers
+    # and must never see (or list) the real ones
+    cache="$(mktemp -d)"
+    XDG_CACHE_HOME="$cache" timeout 120 nvim --clean --headless -l "$repo"/tests/spec.lua || rc=1
+    rm -rf "$cache"
+fi
+
+if [[ "$what" == "e2e" ]]; then
+    echo "== e2e (live headless servers)"
+    timeout 120 "$repo"/tests/e2e.sh || rc=1
 fi
 
 exit $rc

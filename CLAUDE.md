@@ -23,9 +23,11 @@ lazy.nvim. Extracted from the nvim config's `plugin/` 2026-08-06.
 
 ## Verify
 - `tests/run.sh` — `lua-language-server --check` (baseline **0 problems**; run from repo
-  root or `.luarc.json` is not found) + the spec under `nvim --clean`. The spec cannot
-  exercise a real UI hop; that needs two live servers and a `--remote-ui` client — check UI
-  counts with `--remote-expr 'len(nvim_list_uis())'` before claiming a hop works.
+  root or `.luarc.json` is not found) + the spec under `nvim --clean`. `tests/run.sh e2e`
+  drives real detached headless servers in a sandboxed HOME/XDG tree (~5s, not in `all`).
+  Neither can exercise a real UI hop; that needs two live servers and a `--remote-ui`
+  client — check UI counts with `--remote-expr 'len(nvim_list_uis())'` before claiming a
+  hop works.
 
 ## Style & workflow
 - 4-space indent, double quotes, ~100 cols; formatting via lua_ls/EmmyLuaCodeStyle

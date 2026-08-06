@@ -14,13 +14,27 @@ tests/run.sh check    # just lua-language-server
 ```
 
 The spec runs end-to-end on `nvim --clean`: command registration and
-existence-gating, `setup()` re-running cleanly, and the quitguard's whole
-sentinel lifecycle against real terminal jobs and a stubbed litre. A
-PostToolUse hook runs the whole suite on every Lua edit. There is no
-standalone lua on this box; `nvim --clean -l` is the runtime. Run
-lua-language-server from the repo root or `.luarc.json` is not found.
+existence-gating, `setup()` re-running cleanly, the quitguard's whole
+sentinel lifecycle against real terminal jobs and a stubbed litre, the
+SSH_AUTH_SOCK pin under a fabricated `$HOME`, and `:Connect`'s listing
+against a sandboxed `XDG_CACHE_HOME`. A PostToolUse hook runs the whole
+suite on every Lua edit. There is no standalone lua on this box;
+`nvim --clean -l` is the runtime. Run lua-language-server from the repo
+root or `.luarc.json` is not found.
 
-## Tier 2 — needs live servers or a human
+## Tier 2 — e2e, live headless servers, still offline
+
+```bash
+tests/run.sh e2e      # tests/e2e.sh; ~5s, so not part of "all"
+```
+
+Starts real detached `--listen` servers with `HOME` and every XDG dir
+sandboxed under a mktemp tree (the real `~/.cache/nvim/servers` is never
+touched): the SSH_AUTH_SOCK pin at startup and its inheritance by terminal
+jobs, `:Connect` excluding the server's own socket, and quitguard against a
+real `:qa` / `:qa!` including the killed-jobs.txt log.
+
+## Tier 3 — needs a real UI or a human
 
 The spec cannot hop between servers or see a UI. After changes to these,
 check by hand:
@@ -30,7 +44,8 @@ check by hand:
   hop works — a hop that "returned" can still have left zero UIs attached.
 - **`:Connect` escaping**: every socket name contains `%`; a path that avoids
   `fnameescape` is E499 in a live client even though the spec passes.
-- **the fish half** (`nv`, `nvls`, `nvsh`): the spec never touches fish.
+- **the fish half** (`nv`, `nvls`, `nvsh`): the tests never touch fish.
   Exercise from a real shell; `nvsh` additionally needs an ssh session.
-- **SSH_AUTH_SOCK pin**: needs a server that outlived its original ssh
-  session — check `:echo $SSH_AUTH_SOCK` points at the pinned path.
+- **SSH_AUTH_SOCK against a real agent**: e2e proves the pin mechanics; that
+  `ssh -A` actually authenticates from a terminal buffer in a server that
+  outlived its original ssh session still needs a human.
