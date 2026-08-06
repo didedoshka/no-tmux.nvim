@@ -1,4 +1,4 @@
-# nv.nvim
+# no-tmux.nvim
 
 nvim as the tmux replacement: one detached headless nvim server per project, disposable TUI
 clients, and hopping the UI between servers instead of switching tmux sessions. ssh → nvim,
@@ -19,7 +19,7 @@ commands are existence-gated, so older builds simply get none of them. fzf-lua i
 lazy.nvim, local checkout:
 
     {
-        dir = vim.fn.expand("~/personal/nv.nvim"),
+        dir = vim.fn.expand("~/personal/no-tmux.nvim"),
         config = function()
             require("nv").setup()
         end,
@@ -27,7 +27,7 @@ lazy.nvim, local checkout:
 
 fish half: symlink the functions into the autoload dir —
 
-    ln -s ~/personal/nv.nvim/fish/{nv,nvls,nvsh}.fish ~/.config/fish/functions/
+    ln -s ~/personal/no-tmux.nvim/fish/{nv,nvls,nvsh}.fish ~/.config/fish/functions/
 
 ## fish commands
 

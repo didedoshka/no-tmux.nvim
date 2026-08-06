@@ -1,4 +1,4 @@
-# nv.nvim — session rules
+# no-tmux.nvim — session rules
 
 nvim-as-tmux machinery: per-project headless nvim servers (lua half) plus the fish client
 commands (fish/). Personal project, single user, loaded from a local checkout via
