@@ -48,16 +48,23 @@ The laptop is a terminal and ssh, nothing else — no checkout, no functions. Th
 profile does the whole `tmux a || tmux` job with **Command: `Login Shell`** and **Send text
 at start**:
 
-    ssh <host> -t '~/.local/bin/fish -C "nt ~"'
+    ssh <host> -t '~/.local/bin/fish -c "nt ~; or exec ~/.local/bin/fish"'
 
 Every connection lands in the server rooted at `~`, the hub: worktree prep happens in a
 terminal tab there (surviving disconnects, unlike a raw ssh shell), then `nt <dir>` hops
-onward. `~/.local/bin/fish` is the *remote* fish. `fish -C` rather than `exec` so that
-`:detach` — or a server that refuses to start — leaves an interactive shell on the box;
-`Login Shell` rather than putting the ssh in iTerm's `Command` field so a dropped
-connection lands back at a local prompt. Don't use iTerm's `SSH` profile type: it injects
-shell integration and wants python3 remotely, both pointless when the login immediately
-becomes a UI client.
+onward. `~/.local/bin/fish` is the *remote* fish, twice — the login shell and the fallback.
+
+`:detach` ends the ssh session and drops you back to the laptop, the way detaching from
+tmux did. That is what `fish -c` buys: it runs the one command and exits, so nothing holds
+the connection open once the client is gone. The `; or` branch is the safety valve —
+measured, `:detach` exits the `--remote-ui` client **0** and `nt` returns **1** when the
+server never came up, so only the failure lands you in an interactive shell on the box
+instead of bouncing you off a machine you cannot reach.
+
+`Login Shell` rather than putting the ssh in iTerm's `Command` field so the closing session
+lands back at a *local* prompt — reconnect is `↑`+`Enter`. Don't use iTerm's `SSH` profile
+type: it injects shell integration and wants python3 remotely, both pointless when the
+login immediately becomes a UI client.
 
 ## nvim commands
 

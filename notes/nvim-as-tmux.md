@@ -89,8 +89,13 @@ The `tmux a || tmux` analogue: every connection lands in a server rooted at `~`,
 which acts as the hub — worktree prep happens in a terminal tab there (and so
 survives disconnects, unlike a raw ssh shell), then `nt <dir>` hops onward.
 
-- the iTerm profile (replaces tmuxsh): `ssh <host> -t '~/.local/bin/fish -C "nt ~"'`.
-  After `:detach`, `fish -C` leaves an interactive shell on the box.
+- the iTerm profile (replaces tmuxsh):
+  `ssh <host> -t '~/.local/bin/fish -c "nt ~; or exec ~/.local/bin/fish"'`.
+  `fish -c` exits after the client does, so `:detach` ends the ssh session and
+  drops back to the laptop, like detaching from tmux. Measured: `:detach` exits
+  the `--remote-ui` client 0 and `nt` returns 1 when the server never came up,
+  so `; or` only fires on failure — the safety valve against bouncing off a box
+  whose server refuses to start.
 - `nt` run inside a `:terminal` (`$NVIM` set) no longer nests a TUI: it starts
   the target server, then swings the host's UI there with
   `nvim --server $NVIM --remote-expr "execute('connect <sock>')"` (verified
