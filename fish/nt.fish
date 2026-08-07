@@ -25,7 +25,10 @@ function nt --description "attach to the project nvim server, starting it if nee
 
     if not nvim --server $sock --remote-expr 1 >/dev/null 2>&1
         rm -f $sock
-        sh -c "cd '$dir' && setsid nvim --headless --listen '$sock' >/dev/null 2>&1 &"
+        # env -u NVIM: launched from a server's :terminal the spawn inherits $NVIM,
+        # and flatten.nvim makes the new instance forward to the host and exit --
+        # the server dies silently before the socket ever appears (measured live).
+        sh -c "cd '$dir' && setsid env -u NVIM nvim --headless --listen '$sock' >/dev/null 2>&1 &"
         for i in (seq 50)
             test -S $sock; and break
             sleep 0.1
