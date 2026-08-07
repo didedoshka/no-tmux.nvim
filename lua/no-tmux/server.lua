@@ -100,7 +100,12 @@ function M.restart_other(s, done)
     poll(30, function()
         return not vim.uv.fs_stat(s.path)
     end, function()
-        local spawned, job = pcall(vim.fn.jobstart, info.argv, { cwd = info.cwd, detach = true })
+        -- jobstart sets $NVIM in the job's env, and a respawn that sees it
+        -- becomes a flatten guest and dies before its socket appears (the
+        -- nt.fish trap, measured live) -- jobstart cannot unset a var, so
+        -- strip it with an env(1) wrapper instead
+        local cmd = vim.list_extend({ "env", "-u", "NVIM" }, info.argv)
+        local spawned, job = pcall(vim.fn.jobstart, cmd, { cwd = info.cwd, detach = true })
         if not spawned or job <= 0 then
             return done(s.label .. ": did not respawn")
         end
@@ -208,6 +213,17 @@ function M.setup()
     local auth_sock = vim.fs.normalize("~/.ssh/ssh_auth_sock")
     if vim.uv.fs_lstat(auth_sock) then
         vim.env.SSH_AUTH_SOCK = auth_sock
+    end
+
+    -- 'shell' is seeded from $SHELL, inherited from whatever spawned this
+    -- server -- and a respawn chain that once passed through a bash
+    -- environment (a :terminal running Claude Code, a restart_other jobstart)
+    -- leaks bash into every :term from then on. Pin both to fish, the way
+    -- tmux's default-shell did; $SHELL too so respawns inherit the fix.
+    local fish = vim.fn.exepath("fish")
+    if fish ~= "" then
+        vim.env.SHELL = fish
+        vim.o.shell = fish
     end
 
     -- :restart with the layout preserved: plain :restart forgets everything,

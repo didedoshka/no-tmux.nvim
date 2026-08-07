@@ -83,7 +83,9 @@ so `:RestartAll`'s label-derived session names are `fnameescape`d too.
 The others have no UI attached, and `:restart` without a UI leaves a dangling server
 process (`:h :restart`) — so each one is restarted by hand: its session is saved over RPC
 (terminals excluded, session file per server under `stdpath("state")`), it is `:qall`ed,
-respawned with its own `v:argv` in its own cwd, and the session is sourced back. The RPC
+respawned with its own `v:argv` in its own cwd (under `env -u NVIM` — jobstart sets `$NVIM`
+in the job's env, and a respawn that sees it becomes a flatten guest and dies before its
+socket appears, the same trap `nt` guards against), and the session is sourced back. The RPC
 payload is self-contained Lua: a target still running a pre-`:RestartAll` build of the
 plugin restarts fine. A server whose quitguard refuses the quit (jobs running) is skipped
 and keeps its old config; when anything was skipped, the current server is *not* restarted —
@@ -127,3 +129,9 @@ every ssh login, so terminal buffers keep a working agent however old the server
 did this with `set-environment -g`). The pin happens whenever the symlink itself exists,
 even dangling — a server started after its agent died still heals at the next login. Only
 a box without the symlink at all is left alone.
+
+`$SHELL` and `'shell'` are pinned to fish the same way (tmux: `default-shell`): `'shell'`
+is seeded from `$SHELL`, inherited from whatever spawned the server, so a respawn chain
+that once passed through a bash environment (a `:terminal` running Claude Code, a
+`:RestartAll` respawn) would otherwise leak bash into every `:term` from then on. A box
+without fish is left alone.
