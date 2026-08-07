@@ -119,6 +119,9 @@ function M.setup()
                 table.insert(lines, "  litre " .. task.id)
             end
             local state = vim.fn.stdpath("state") --[[@as string]]
+            -- a fresh box (or the e2e sandbox) has no state dir yet, and
+            -- io.open "a" does not create parents -- the log would be lost
+            vim.fn.mkdir(state, "p")
             local f = io.open(vim.fs.joinpath(state, "killed-jobs.txt"), "a")
             if f then
                 f:write(table.concat(lines, "\n") .. "\n")
