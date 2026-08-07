@@ -228,6 +228,18 @@ do
         notified ~= nil and notified:find("nothing to pin") ~= nil)
     check("source: refused pin stored nothing", store.load("servers").a == nil)
 
+    -- activating a down pin starts its server -- but never when the project
+    -- directory itself is gone; spawning is e2e territory, the guard is not
+    notified = nil
+    ---@diagnostic disable-next-line: duplicate-set-field
+    vim.notify = function(msg, _level, _opts)
+        notified = msg
+    end
+    source.activate({ data = "/data/project/gone" })
+    vim.notify = saved_notify
+    check("source: activate refuses to start when the project dir is gone",
+        notified ~= nil and notified:find("directory gone") ~= nil)
+
     check("source: unpin removes the char and asks for a reopen",
         source.unpin({ char = "e" }) == true and store.load("servers").e == nil)
     check("source: unpin on an unpinned entry is a no-op",

@@ -101,7 +101,9 @@ char pins the *current* server to that char (refused when this instance's socket
 no-tmux one); `ctrl-x` unpins; `i` drops into fuzzy search. Pins are stored globally by
 project
 label — the fzf-pin store, `servers` namespace — so they survive socket churn across
-restarts. A pinned server with no live socket shows `(down)` and refuses the hop; the
+restarts. A pinned server with no live socket shows `(down)`; activating it starts the
+server the way `nt` would (detached, in the project directory the label names) and hops
+there once the socket appears — refused only when that directory no longer exists. The
 current one shows `(this)`. The source is `require("no-tmux.server").source`.
 
 ## quitguard

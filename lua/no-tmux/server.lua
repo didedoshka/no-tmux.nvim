@@ -65,6 +65,29 @@ local function poll(tries, cond, ok, fail)
     end)
 end
 
+-- A pinned server with no socket: start it the way `nt` would -- detached,
+-- `env -u NVIM` (the flatten-guest trap, same as restart_other), cwd = the
+-- label, which is the project path -- then hop once the socket appears.
+local function start_and_hop(label, path)
+    if vim.fn.isdirectory(label) == 0 then
+        vim.notify(label .. ": directory gone, cannot start", vim.log.levels.WARN)
+        return
+    end
+    local cmd = { "env", "-u", "NVIM", "nvim", "--headless", "--listen", path }
+    local spawned, job = pcall(vim.fn.jobstart, cmd, { cwd = label, detach = true })
+    if not spawned or job <= 0 then
+        return vim.notify(label .. ": server did not spawn", vim.log.levels.WARN)
+    end
+    vim.notify("starting server for " .. label)
+    poll(50, function()
+        return vim.uv.fs_stat(path) ~= nil
+    end, function()
+        hop(path)
+    end, function()
+        vim.notify(label .. ": server did not come up", vim.log.levels.WARN)
+    end)
+end
+
 -- Sent over RPC to the server being restarted. Self-contained on purpose:
 -- the target is still running whatever plugin version it loaded at startup,
 -- so nothing here may call into no-tmux on that side.
@@ -165,7 +188,7 @@ M.source = {
         end
         local path = vim.fs.joinpath(servers_dir(), encode(item.data))
         if not vim.uv.fs_stat(path) then
-            vim.notify("no server for " .. item.data, vim.log.levels.WARN)
+            start_and_hop(item.data, path)
             return
         end
         hop(path)
