@@ -47,6 +47,84 @@ local function hop(path)
     vim.cmd("connect " .. vim.fn.fnameescape(path))
 end
 
+-- poll cond every 100ms until it holds (-> ok) or tries run out (-> fail);
+-- cond runs on the uv thread, so libuv only in there
+local function poll(tries, cond, ok, fail)
+    local timer = assert(vim.uv.new_timer())
+    timer:start(100, 100, function()
+        if cond() then
+            timer:close()
+            vim.schedule(ok)
+        else
+            tries = tries - 1
+            if tries <= 0 then
+                timer:close()
+                vim.schedule(fail)
+            end
+        end
+    end)
+end
+
+-- Sent over RPC to the server being restarted. Self-contained on purpose:
+-- the target is still running whatever plugin version it loaded at startup,
+-- so nothing here may call into no-tmux on that side.
+local SAVE_AND_DESCRIBE = [[
+    local file = ...
+    local saved = vim.o.sessionoptions
+    vim.opt.sessionoptions:remove("terminal")
+    vim.cmd("mksession! " .. vim.fn.fnameescape(file))
+    vim.o.sessionoptions = saved
+    return { argv = vim.v.argv, cwd = vim.fn.getcwd() }
+]]
+
+-- Restart a server this UI is not attached to. :restart itself is out: with
+-- no UI to handle the "restart" event it leaves a dangling server process
+-- (:h :restart). So by hand, the way `nt` would: save its session over RPC,
+-- :qall it (quitguard may refuse -- then it is skipped), respawn its own
+-- argv in its own cwd, and source the session back. done(nil) on success,
+-- done(reason) otherwise.
+function M.restart_other(s, done)
+    local connected, chan = pcall(vim.fn.sockconnect, "pipe", s.path, { rpc = true })
+    if not connected or chan == 0 then
+        return done(s.label .. ": dead socket, skipped")
+    end
+    local sess = vim.fs.joinpath(vim.fn.stdpath("state"),
+        "restart-session-" .. encode(s.label) .. ".vim")
+    local saved, info = pcall(vim.rpcrequest, chan, "nvim_exec_lua", SAVE_AND_DESCRIBE, { sess })
+    if not saved then
+        pcall(vim.fn.chanclose, chan)
+        return done(s.label .. ": session save failed, skipped")
+    end
+    -- notify, not request: on a clean quit the reply channel dies with the server
+    vim.rpcnotify(chan, "nvim_command", "qall")
+    poll(30, function()
+        return not vim.uv.fs_stat(s.path)
+    end, function()
+        local spawned, job = pcall(vim.fn.jobstart, info.argv, { cwd = info.cwd, detach = true })
+        if not spawned or job <= 0 then
+            return done(s.label .. ": did not respawn")
+        end
+        poll(100, function()
+            return vim.uv.fs_stat(s.path) ~= nil
+        end, function()
+            local reachable, chan2 = pcall(vim.fn.sockconnect, "pipe", s.path, { rpc = true })
+            if not reachable or chan2 == 0 then
+                return done(s.label .. ": respawned but unreachable")
+            end
+            -- the session name is label-derived and contains % -- fnameescape
+            -- or :source dies with E499, same trap as :connect
+            vim.rpcnotify(chan2, "nvim_command", "source " .. vim.fn.fnameescape(sess))
+            pcall(vim.fn.chanclose, chan2)
+            done(nil)
+        end, function()
+            done(s.label .. ": did not come back up")
+        end)
+    end, function()
+        pcall(vim.fn.chanclose, chan)
+        done(s.label .. ": still running (quitguard blocking?), skipped")
+    end)
+end
+
 -- The server list as an fzf-pin source: pins first (chars persisted globally
 -- by project label -- sockets churn on restarts, labels do not), then the
 -- other live servers. A free char pins the current server, ctrl-x unpins.
@@ -144,6 +222,39 @@ function M.setup()
             vim.cmd("mksession! " .. vim.fn.fnameescape(file))
             vim.o.sessionoptions = saved
             vim.cmd("restart source " .. vim.fn.fnameescape(file))
+        end, {})
+
+        -- :Restart for the whole fleet: the other servers first (in
+        -- parallel), this one last -- its restart tears the UI down, so it
+        -- must not cut the timers driving the others. If anything was
+        -- skipped, this server stays up so the report stays readable.
+        vim.api.nvim_create_user_command("RestartAll", function()
+            local servers = other_servers()
+            if #servers == 0 then
+                vim.cmd("Restart")
+                return
+            end
+            local pending, skipped = #servers, {}
+            local function done(reason)
+                if reason then
+                    table.insert(skipped, reason)
+                end
+                pending = pending - 1
+                if pending > 0 then
+                    return
+                end
+                if #skipped == 0 then
+                    vim.cmd("Restart")
+                    return
+                end
+                vim.notify("RestartAll:\n" .. table.concat(skipped, "\n")
+                    .. "\nthis server kept alive -- :Restart it yourself",
+                    vim.log.levels.WARN)
+            end
+            vim.notify(("RestartAll: restarting %d other servers"):format(#servers))
+            for _, s in ipairs(servers) do
+                M.restart_other(s, done)
+            end
         end, {})
     end
 

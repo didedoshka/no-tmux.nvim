@@ -21,6 +21,7 @@ local cmds = vim.api.nvim_get_commands({})
 check(":Connect registered", vim.fn.exists(":connect") ~= 2 or cmds.Connect ~= nil)
 check(":FzfConnect registered", vim.fn.exists(":connect") ~= 2 or cmds.FzfConnect ~= nil)
 check(":Restart registered", vim.fn.exists(":restart") ~= 2 or cmds.Restart ~= nil)
+check(":RestartAll registered", vim.fn.exists(":restart") ~= 2 or cmds.RestartAll ~= nil)
 check("quitguard QuitPre+VimLeavePre", #vim.api.nvim_get_autocmds({ group = "quitguard" }) == 2)
 
 -- re-running setup must not error or duplicate autocmds

@@ -71,11 +71,25 @@ login immediately becomes a UI client.
 | command | does |
 | --- | --- |
 | `:Restart` | `:restart` with the layout preserved: mksession (terminals excluded — restoring would respawn jobs) + `restart source` |
+| `:RestartAll` | `:Restart` for the whole fleet: every other server, then this one |
 | `:Connect` | hop this UI to another live server, `vim.ui.select` picker |
 | `:FzfConnect` | the pinned-servers picker (below); warns when there is nothing to list |
 
 Trap, measured: `:connect` %-expands its argument, and every socket name contains `%` — all
-hops go through `fnameescape` (E499 otherwise).
+hops go through `fnameescape` (E499 otherwise). The same expansion bites `-S` and `:source`,
+so `:RestartAll`'s label-derived session names are `fnameescape`d too.
+
+`:RestartAll` restarts the other servers first, in parallel, then this one via `:Restart`.
+The others have no UI attached, and `:restart` without a UI leaves a dangling server
+process (`:h :restart`) — so each one is restarted by hand: its session is saved over RPC
+(terminals excluded, session file per server under `stdpath("state")`), it is `:qall`ed,
+respawned with its own `v:argv` in its own cwd, and the session is sourced back. The RPC
+payload is self-contained Lua: a target still running a pre-`:RestartAll` build of the
+plugin restarts fine. A server whose quitguard refuses the quit (jobs running) is skipped
+and keeps its old config; when anything was skipped, the current server is *not* restarted —
+the report would die with the UI — and the notify says to `:Restart` it manually. Typical
+use: add a plugin spec to the config, `:RestartAll`, every server comes back on the new
+config (lazy.nvim installs missing plugins at startup).
 
 ## Pinned servers
 

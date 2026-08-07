@@ -177,6 +177,54 @@ check "terminal job reaches the repointed agent" \
     "$(cat "$tmp/term-env-c" 2>/dev/null)" "$(readlink -f "$tmp/fresh-agent.sock")"
 nvim --server "$sock_c" --remote-send ':qa!<CR>' 2>/dev/null
 
+# --- restart_other: a live server restarted from another one -------------------
+# D (initiator) and E (target) share a home so D's :Connect machinery sees E's
+# socket. E gets a two-window session; D saves it over RPC, quits E, respawns
+# it (E's own --clean argv, so no config involved) and sources the session
+# back. The done callback reports into a file.
+home_d="$tmp/d"
+mkdir -p "$home_d"
+sock_d="$home_d/cache/nvim/servers/%proj%d"
+sock_e="$home_d/cache/nvim/servers/%proj%e"
+start_server "$home_d" "$sock_d"
+start_server "$home_d" "$sock_e"
+
+cat > "$tmp/layout.lua" <<EOF
+vim.cmd("edit $tmp/one.txt")
+vim.cmd("split $tmp/two.txt")
+return 1
+EOF
+rlua "$sock_e" "$tmp/layout.lua"
+
+cat > "$tmp/restart-e.lua" <<EOF
+require("no-tmux.server").restart_other(
+    { path = "$sock_e", label = "/proj/e" },
+    function(reason)
+        local f = assert(io.open("$tmp/restart-result", "w"))
+        f:write(reason or "ok")
+        f:close()
+    end)
+return 1
+EOF
+rlua "$sock_d" "$tmp/restart-e.lua"
+for _ in $(seq 200); do [[ -s "$tmp/restart-result" ]] && break; sleep 0.1; done
+check "restart_other reports success" "$(cat "$tmp/restart-result" 2>/dev/null)" "ok"
+check "restarted server is reachable" "$(rexpr "$sock_e" 1)" "1"
+# the source arrives as an rpcnotify -- give the fresh server a beat
+layout=""
+for _ in $(seq 50); do
+    layout="$(rexpr "$sock_e" "len(nvim_list_wins())")"
+    [[ "$layout" == "2" ]] && break
+    sleep 0.1
+done
+check "session restored: two windows" "$layout" "2"
+check "session restored: split buffer" \
+    "$(rexpr "$sock_e" "fnamemodify(bufname(winbufnr(1)), ':t')")" "two.txt"
+
+# the respawned E is not in our pids list -- shut it down explicitly
+nvim --server "$sock_e" --remote-send ':qa!<CR>' 2>/dev/null
+nvim --server "$sock_d" --remote-send ':qa!<CR>' 2>/dev/null
+
 if (( failed > 0 )); then
     echo "$failed e2e checks failed"
     exit 1
