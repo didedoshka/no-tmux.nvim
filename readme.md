@@ -108,11 +108,15 @@ current one shows `(this)`. The source is `require("no-tmux.server").source`.
 
 ## quitguard
 
-A server `:qa` kills running jobs silently. On `QuitPre`, while any terminal shell has a
-running child or a litre task is alive, the quit fails (E37 via a hidden modified sentinel
-buffer) and a notify names the jobs; an idle shell and an fzf-lua picker terminal
-(filetype `fzf`) do not block. `:qa!` overrides — what
-it kills is appended to `stdpath("state")/killed-jobs.txt` with cwd and command.
+A server `:qa` kills running jobs silently. On `ExitPre` — only a quit that would actually
+end the session; `:q` on a split never triggers it — while any terminal shell has a running
+child or a litre task is alive: with a UI attached, a `confirm()` prompt names the jobs and
+asks stay / quit-and-kill; choosing quit exits normally. Staying, and any headless instance
+(which cannot answer — notably `:RestartAll`'s rpc `:qall`, marked by `g:quitguard_auto`),
+blocks the quit instead (E37 via a hidden modified sentinel buffer; headless also notifies
+into `:messages`). An idle shell and an fzf-lua picker terminal (filetype `fzf`) never
+block. `:qa!` always overrides — whatever quit goes through appends what it killed to
+`stdpath("state")/killed-jobs.txt` with cwd and command.
 
 ## habit
 

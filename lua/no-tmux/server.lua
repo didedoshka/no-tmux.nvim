@@ -118,8 +118,11 @@ function M.restart_other(s, done)
         pcall(vim.fn.chanclose, chan)
         return done(s.label .. ": session save failed, skipped")
     end
-    -- notify, not request: on a clean quit the reply channel dies with the server
-    vim.rpcnotify(chan, "nvim_command", "qall")
+    -- notify, not request: on a clean quit the reply channel dies with the server.
+    -- g:quitguard_auto keeps the guard non-interactive: a busy target with a UI
+    -- attached elsewhere must refuse and be skipped, not pop a prompt over there
+    vim.rpcnotify(chan, "nvim_exec_lua",
+        [[vim.g.quitguard_auto = 1; pcall(vim.cmd, "qall"); vim.g.quitguard_auto = nil]], {})
     poll(30, function()
         return not vim.uv.fs_stat(s.path)
     end, function()

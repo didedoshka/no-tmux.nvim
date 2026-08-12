@@ -22,21 +22,21 @@ check(":Connect registered", vim.fn.exists(":connect") ~= 2 or cmds.Connect ~= n
 check(":FzfConnect registered", vim.fn.exists(":connect") ~= 2 or cmds.FzfConnect ~= nil)
 check(":Restart registered", vim.fn.exists(":restart") ~= 2 or cmds.Restart ~= nil)
 check(":RestartAll registered", vim.fn.exists(":restart") ~= 2 or cmds.RestartAll ~= nil)
-check("quitguard QuitPre+VimLeavePre", #vim.api.nvim_get_autocmds({ group = "quitguard" }) == 2)
+check("quitguard ExitPre+VimLeavePre", #vim.api.nvim_get_autocmds({ group = "quitguard" }) == 2)
 
 -- re-running setup must not error or duplicate autocmds
 require("no-tmux").setup()
 check("setup re-runs cleanly", #vim.api.nvim_get_autocmds({ group = "quitguard" }) == 2)
 
--- an idle instance must not be blocked from quitting: QuitPre with no busy
+-- an idle instance must not be blocked from quitting: ExitPre with no busy
 -- terminals and no litre tasks leaves no modified sentinel behind
-vim.api.nvim_exec_autocmds("QuitPre", {})
+vim.api.nvim_exec_autocmds("ExitPre", {})
 local sentinel = vim.g.quitguard_sentinel
 check("idle quit unblocked", sentinel == nil or not vim.bo[sentinel].modified)
 
 -- quitguard arms its sentinel while a busy terminal exists. The block itself
 -- is nvim core (a modified buffer fails :qa with E37); the guard's own
--- contract is the sentinel's modified flag on QuitPre.
+-- contract is the sentinel's modified flag on ExitPre.
 do
     local term = vim.api.nvim_create_buf(true, false)
     vim.api.nvim_set_current_buf(term)
@@ -50,19 +50,19 @@ do
         return alive and #kids > 0
     end))
 
-    vim.api.nvim_exec_autocmds("QuitPre", {})
+    vim.api.nvim_exec_autocmds("ExitPre", {})
     local buf = vim.g.quitguard_sentinel
     check("sentinel created", buf and vim.api.nvim_buf_is_valid(buf))
     check("sentinel armed with a busy terminal", vim.bo[buf].modified)
     check("sentinel line names the running command",
         vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1]:find("sleep", 1, true) ~= nil)
 
-    -- shell gone: QuitPre must disarm
+    -- shell gone: ExitPre must disarm
     vim.fn.jobstop(job)
     vim.wait(1000, function()
         return not pcall(vim.api.nvim_get_proc, pid)
     end)
-    vim.api.nvim_exec_autocmds("QuitPre", {})
+    vim.api.nvim_exec_autocmds("ExitPre", {})
     check("sentinel disarmed with the shell gone", not vim.bo[buf].modified)
 
     vim.api.nvim_buf_delete(term, { force = true })
@@ -80,7 +80,7 @@ do
         return alive and #kids > 0
     end))
 
-    vim.api.nvim_exec_autocmds("QuitPre", {})
+    vim.api.nvim_exec_autocmds("ExitPre", {})
     local buf = vim.g.quitguard_sentinel
     check("fzf picker does not arm the guard", buf == nil or not vim.bo[buf].modified)
 
@@ -96,7 +96,7 @@ do
         end,
     }
 
-    vim.api.nvim_exec_autocmds("QuitPre", {})
+    vim.api.nvim_exec_autocmds("ExitPre", {})
     local buf = vim.g.quitguard_sentinel
     check("sentinel created for litre task", buf and vim.api.nvim_buf_is_valid(buf))
     check("sentinel armed with a task running", vim.bo[buf].modified)
@@ -108,13 +108,13 @@ do
         return not vim.bo[buf].modified
     end))
 
-    -- no running tasks: QuitPre must leave the sentinel unmodified
+    -- no running tasks: ExitPre must leave the sentinel unmodified
     package.loaded["litre.runner"] = {
         running_tasks = function()
             return {}
         end,
     }
-    vim.api.nvim_exec_autocmds("QuitPre", {})
+    vim.api.nvim_exec_autocmds("ExitPre", {})
     check("sentinel unarmed with nothing running", not vim.bo[buf].modified)
 
     package.loaded["litre.runner"] = nil

@@ -39,6 +39,10 @@ real `:qa` / `:qa!` including the killed-jobs.txt log.
 The spec cannot hop between servers or see a UI. After changes to these,
 check by hand:
 
+- **quitguard's confirm prompt**: the spec and e2e are headless (zero UIs), so
+  they only ever exercise the blocking branch. The prompt on a busy `:qa`,
+  "quit and kill" actually exiting, and "stay" leaving just the bare E37 need
+  a real UI.
 - **a real hop**: needs two live servers and a `--remote-ui` client. Verify
   with `--remote-expr 'len(nvim_list_uis())'` on both sides before claiming a
   hop works — a hop that "returned" can still have left zero UIs attached.

@@ -3,11 +3,14 @@
 -- script -l mode is an artifact of that mode and never appears here). That
 -- covers both kinds of job: terminal shells running something, and litre
 -- tasks -- vim.system processes that belong to no buffer, which litre even
--- reaps on VimLeavePre. On QuitPre this recomputes what is busy and, while
--- anything is, a hidden modified buffer makes the quit fail with a bare E37
--- (no jump, no buffer name -- measured), so a notify names the jobs and the
--- :qa! override. An idle shell does not block. Whatever a forced quit then
--- kills is appended to stdpath("state")/killed-jobs.txt with cwd and
+-- reaps on VimLeavePre. On ExitPre -- so only a quit that would actually end
+-- the session; closing a split never fires it -- this recomputes what is
+-- busy and, while anything is: a real UI gets a confirm() prompt naming the
+-- jobs, where "quit and kill" just lets the exit continue; "stay" (and any
+-- headless instance, which cannot answer) blocks the quit instead -- a
+-- hidden modified buffer makes it fail with a bare E37 (no jump, no buffer
+-- name -- measured). An idle shell does not block. Whatever quit then goes
+-- through is appended to stdpath("state")/killed-jobs.txt with cwd and
 -- command, as a record of what to re-run.
 local M = {}
 
@@ -69,7 +72,7 @@ end
 function M.setup()
     local group = vim.api.nvim_create_augroup("quitguard", { clear = true })
 
-    vim.api.nvim_create_autocmd("QuitPre", {
+    vim.api.nvim_create_autocmd("ExitPre", {
         group = group,
         callback = function()
             local terms, tasks = busy_terms(), running_litre_tasks()
@@ -80,11 +83,25 @@ function M.setup()
                 end
                 return
             end
-            local buf = sentinel()
             local what = describe(terms, tasks)
-            -- E37 itself never says what blocked, so say it here; also fires on a
-            -- mere window :q while a task runs, where it is still a true statement
-            vim.notify(("quitguard: %s running (:qa! kills it)"):format(what), vim.log.levels.WARN)
+            -- a UI gets a question instead of an error; "quit and kill" lets the
+            -- exit continue and VimLeavePre logs the kills. Headless instances
+            -- (the spec, :RestartAll's rpc :qall via g:quitguard_auto) cannot
+            -- answer a prompt, so they block below and the notify -- E37 itself
+            -- never says what blocked -- lands in :messages.
+            if #vim.api.nvim_list_uis() > 0 and not vim.g.quitguard_auto then
+                if vim.fn.confirm(("quitguard: %s running"):format(what),
+                        "&stay\n&quit and kill", 1) == 2 then
+                    local buf = vim.g.quitguard_sentinel
+                    if buf and vim.api.nvim_buf_is_valid(buf) then
+                        vim.bo[buf].modified = false
+                    end
+                    return
+                end
+            else
+                vim.notify(("quitguard: %s running (:qa! kills it)"):format(what), vim.log.levels.WARN)
+            end
+            local buf = sentinel()
             vim.api.nvim_buf_set_lines(buf, 0, -1, false, { ("running: %s -- :qa! kills"):format(what) })
             -- the :// scheme keeps nvim from absolutizing the name into a path
             local name = ("quitguard://%s"):format(what:sub(1, 60))
