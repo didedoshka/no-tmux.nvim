@@ -11,7 +11,8 @@
 -- hidden modified buffer makes it fail with a bare E37 (no jump, no buffer
 -- name -- measured). An idle shell does not block. Whatever quit then goes
 -- through is appended to stdpath("state")/killed-jobs.txt with cwd and
--- command, as a record of what to re-run.
+-- command, as a record of what to re-run. A :restart quit is exempt from all
+-- of it (see the ExitPre callback for why).
 local M = {}
 
 -- the sentinel bufnr lives in vim.g so re-running setup() reuses the buffer
@@ -27,6 +28,13 @@ local function sentinel()
     vim.bo[buf].modified = false
     vim.g.quitguard_sentinel = buf
     return buf
+end
+
+local function clear_sentinel()
+    local buf = vim.g.quitguard_sentinel
+    if buf and vim.api.nvim_buf_is_valid(buf) then
+        vim.bo[buf].modified = false
+    end
 end
 
 -- terminal buffers whose shell is running something, with the child commands.
@@ -75,12 +83,20 @@ function M.setup()
     vim.api.nvim_create_autocmd("ExitPre", {
         group = group,
         callback = function()
+            -- A :restart quit must never be prompted or blocked: ex_restart has
+            -- already handed the socket to the new server and told the UI to
+            -- reattach *before* it runs the quit. Refusing here cancels the
+            -- restart but leaves the UI's reattach order armed forever, and the
+            -- next real quit kills the UI with "connection refused" (measured
+            -- live, 2026-08-12). v:exitreason is "restart"/"restart!" during
+            -- that quit ("quit" on a plain :qa); VimLeavePre still logs kills.
+            if vim.v.exitreason == "restart" or vim.v.exitreason == "restart!" then
+                clear_sentinel()
+                return
+            end
             local terms, tasks = busy_terms(), running_litre_tasks()
             if #terms == 0 and #tasks == 0 then
-                local buf = vim.g.quitguard_sentinel
-                if buf and vim.api.nvim_buf_is_valid(buf) then
-                    vim.bo[buf].modified = false
-                end
+                clear_sentinel()
                 return
             end
             local what = describe(terms, tasks)
@@ -92,10 +108,7 @@ function M.setup()
             if #vim.api.nvim_list_uis() > 0 and not vim.g.quitguard_auto then
                 if vim.fn.confirm(("quitguard: %s running"):format(what),
                         "&stay\n&quit and kill", 1) == 2 then
-                    local buf = vim.g.quitguard_sentinel
-                    if buf and vim.api.nvim_buf_is_valid(buf) then
-                        vim.bo[buf].modified = false
-                    end
+                    clear_sentinel()
                     return
                 end
             else

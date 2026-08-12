@@ -118,6 +118,14 @@ into `:messages`). An idle shell and an fzf-lua picker terminal (filetype `fzf`)
 block. `:qa!` always overrides — whatever quit goes through appends what it killed to
 `stdpath("state")/killed-jobs.txt` with cwd and command.
 
+A `:restart` quit (`v:exitreason` is `restart`/`restart!`) is exempt: no prompt, no block,
+kills still logged. By the time the quit runs, `ex_restart` has already handed the socket
+to the respawned server and told every UI to reattach to it on exit — refusing the quit
+cancels the restart but leaves that reattach order armed forever, and the *next* real quit
+kills the UI with `connection refused` (measured live). `:Restart` deliberately does not
+ask first either — restarting is itself the considered act, and `killed-jobs.txt` keeps
+the record of what to re-run.
+
 ## habit
 
 `:qa` is the tmux-era reflex and now kills the session everything lives in; the move is

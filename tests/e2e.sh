@@ -8,6 +8,8 @@
 #   - :Connect excluding the server's own socket and decoding labels
 #   - quitguard against a real :qa (blocked while a terminal is busy) and
 #     :qa! (kills, and logs to state/killed-jobs.txt)
+#   - quitguard letting a :restart quit through unprompted (a refusal would
+#     poison the UI's reattach order -- see the ExitPre comment)
 # A real UI hop still needs a --remote-ui client -- see the verify skill.
 set -uo pipefail
 
@@ -134,6 +136,49 @@ if [[ -f "$log" ]] && grep -q "sleep" "$log"; then
     ok ":qa! logged the killed job to killed-jobs.txt"
 else
     fail ":qa! logged the killed job to killed-jobs.txt (log: $(cat "$log" 2>/dev/null))"
+fi
+
+# --- server R: a :restart quit is never guarded --------------------------------
+# ex_restart hands the socket to the respawned server before it quits, so a
+# blocked quit strands the UI on a cancelled restart. The guard must let it
+# through even with a busy terminal. Headless :restart respawns the server on
+# the same socket (same argv) -- that respawn is not in $pids, kill it by hand.
+home_r="$tmp/r"
+mkdir -p "$home_r"
+sock_r="$home_r/cache/nvim/servers/%proj%r"
+start_server "$home_r" "$sock_r"
+if [[ "$(rexpr "$sock_r" 'exists(":restart")')" != "2" ]]; then
+    ok "no :restart on this nvim -- restart guard exemption skipped"
+    nvim --server "$sock_r" --remote-send ':qa!<CR>' 2>/dev/null
+else
+    pid_r="$(rexpr "$sock_r" 'getpid()')"
+    cat > "$tmp/busy-term.lua" <<EOF
+local buf = vim.api.nvim_create_buf(true, false)
+vim.api.nvim_set_current_buf(buf)
+vim.fn.jobstart({ "sh", "-c", "sleep 30" }, { term = true })
+return 1
+EOF
+    rlua "$sock_r" "$tmp/busy-term.lua"
+    busy=0
+    for _ in $(seq 50); do
+        [[ "$(rexpr "$sock_r" "luaeval('dofile(_A)', '$tmp/busy.lua')")" == "1" ]] && busy=1 && break
+        sleep 0.1
+    done
+    check "server R terminal is busy" "$busy" "1"
+    rexpr "$sock_r" 'execute("restart")' >/dev/null 2>&1
+    dead=0
+    for _ in $(seq 50); do
+        kill -0 "$pid_r" 2>/dev/null || { dead=1; break; }
+        sleep 0.1
+    done
+    check ":restart quit goes through despite the busy terminal" "$dead" "1"
+    log_r="$home_r/state/nvim/killed-jobs.txt"
+    if [[ -f "$log_r" ]] && grep -q "sleep" "$log_r"; then
+        ok ":restart kill still logged to killed-jobs.txt"
+    else
+        fail ":restart kill still logged to killed-jobs.txt (log: $(cat "$log_r" 2>/dev/null))"
+    fi
+    pkill -f -- "--listen $sock_r" 2>/dev/null
 fi
 
 # --- server B: no ~/.ssh/ssh_auth_sock -> env left alone -----------------------
