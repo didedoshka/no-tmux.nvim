@@ -41,9 +41,24 @@ function M.is_nt_server()
     return current_label() ~= nil
 end
 
+-- One UI per server (tmux attach -d): detach whatever is attached to the
+-- target before swinging ours there -- nvim sizes the shared grid to the
+-- smallest attached UI, so a stale client clamps every later one. The
+-- detached client exits 0 like :detach (measured live).
+local function detach_uis(path)
+    local connected, chan = pcall(vim.fn.sockconnect, "pipe", path, { rpc = true })
+    if not connected or chan == 0 then
+        return
+    end
+    pcall(vim.rpcrequest, chan, "nvim_exec_lua",
+        "for _, ui in ipairs(vim.api.nvim_list_uis()) do vim.fn.chanclose(ui.chan) end", {})
+    pcall(vim.fn.chanclose, chan)
+end
+
 -- :connect %-expands its argument, and every socket name contains % --
 -- fnameescape or the hop dies with E499 (verified live).
 local function hop(path)
+    detach_uis(path)
     vim.cmd("connect " .. vim.fn.fnameescape(path))
 end
 

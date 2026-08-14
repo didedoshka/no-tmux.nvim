@@ -33,7 +33,7 @@ fish half: symlink the function into the autoload dir —
 
 | command | does |
 | --- | --- |
-| `nt [dir]` | start-or-attach the server for `dir` (default: cwd). Inside a `:terminal` (`$NVIM` set) it starts the server and swings the host's UI there instead of nesting a TUI |
+| `nt [dir]` | start-or-attach the server for `dir` (default: cwd), detaching any client already on it (tmux `attach -d`). Inside a `:terminal` (`$NVIM` set) it starts the server and swings the host's UI there instead of nesting a TUI |
 | `nt --ls` | list servers with liveness; dead sockets are pruned on sight |
 
 One verb and one flag, not subcommands: attaching is the whole daily surface, and `--ls` is
@@ -41,6 +41,15 @@ rare. Nothing else is planned.
 
 Sockets live at `~/.cache/nvim/servers/`, named by absolute project path with `/` encoded
 as `%`.
+
+One UI per server, always: nvim sizes the shared grid to the *smallest* attached UI, so a
+stale client — dead ssh, forgotten window — shrinks every later one (measured: three
+clients left two servers at 107×42 in a 215×89 terminal). Every attach therefore
+`chanclose`s whatever UIs the target already has, the tmux `attach -d` that was never
+optional here. The detached client exits **0** like `:detach` (measured), so with the
+iTerm line above the old window just ends its ssh session instead of falling into a shell.
+The one exception: `nt` run from a `:terminal` of the *same* server it targets kills
+nothing — the UI rendering that terminal is attached there, and closing it would close you.
 
 ## Connecting from the laptop
 
@@ -74,6 +83,9 @@ login immediately becomes a UI client.
 | `:RestartAll` | `:Restart` for the whole fleet: every other server, then this one |
 | `:Connect` | hop this UI to another live server, `vim.ui.select` picker |
 | `:FzfConnect` | the pinned-servers picker (below); warns when there is nothing to list |
+
+Hops detach the target's UIs first, same one-UI-per-server rule as `nt` (the hop targets
+are always *other* servers, so this never closes the hopping UI itself).
 
 Trap, measured: `:connect` %-expands its argument, and every socket name contains `%` — all
 hops go through `fnameescape` (E499 otherwise). The same expansion bites `-S` and `:source`,

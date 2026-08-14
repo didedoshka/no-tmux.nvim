@@ -105,3 +105,17 @@ survives disconnects, unlike a raw ssh shell), then `nt <dir>` hops onward.
   this bug for every real socket; all paths now go through fnameescape.
 - `:FzfConnect` — fzf_exec picker over the other servers; `:Connect`
   (vim.ui.select) kept as the plain fallback. No keymaps by design.
+
+## Implemented 2026-08-14 — one UI per server (tmux attach -d)
+
+Measured live: three `nt ~` clients from stale ssh sessions (dead laptop
+connections sshd had not reaped) left two servers clamped to 107×42 in a
+215×89 terminal — nvim sizes the shared grid to the smallest attached UI.
+Multiple UIs were never useful here, so every attach now detaches the rest:
+
+- `nt` chancloses the target's UI channels before attaching (skipped when
+  `$NVIM` equals the target socket — that UI is rendering us); `hop()` does
+  the same over RPC before `:connect`, covering `:Connect`/`:FzfConnect`.
+- Measured: `chanclose` on the UI channel makes the `--remote-ui` client
+  exit **0**, same as `:detach` — the stale iTerm window ends its ssh
+  session cleanly instead of hitting the `; or exec fish` valve.

@@ -39,6 +39,16 @@ function nt --description "attach to the project nvim server, starting it if nee
         end
     end
 
+    # One UI per server (tmux attach -d): nvim sizes the shared grid to the
+    # smallest attached UI, so a stale client (dead ssh, forgotten window)
+    # shrinks every later one. chanclose detaches the UI and its client exits
+    # 0 like :detach (measured), so an old window just ends its ssh session.
+    # Skipped when the target is this terminal's own host -- the UI rendering
+    # us is attached there, and killing it would kill us.
+    if test "$sock" != "$NVIM"
+        nvim --server $sock --remote-expr 'map(nvim_list_uis(), "chanclose(v:val.chan)")' >/dev/null 2>&1
+    end
+
     if set -q NVIM
         # Inside a server's :terminal a nested TUI is useless -- swing the host's
         # UI to the target instead. fnameescape because :connect %-expands its
