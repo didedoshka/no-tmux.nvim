@@ -239,7 +239,6 @@ M.source = {
         local pins = store.load("servers")
         pins[item.char] = nil
         store.save("servers", pins)
-        return true
     end,
 }
 

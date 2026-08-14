@@ -240,8 +240,8 @@ do
     check("source: activate refuses to start when the project dir is gone",
         notified ~= nil and notified:find("directory gone") ~= nil)
 
-    check("source: unpin removes the char and asks for a reopen",
-        source.unpin({ char = "e" }) == true and store.load("servers").e == nil)
+    check("source: unpin removes the char",
+        source.unpin({ char = "e" }) == nil and store.load("servers").e == nil)
     check("source: unpin on an unpinned entry is a no-op",
         source.unpin({ label = "/data/project/x" }) == nil)
 end
