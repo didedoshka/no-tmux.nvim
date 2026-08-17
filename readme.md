@@ -46,7 +46,11 @@ One UI per server, always: nvim sizes the shared grid to the *smallest* attached
 stale client — dead ssh, forgotten window — shrinks every later one (measured: three
 clients left two servers at 107×42 in a 215×89 terminal). Every attach therefore
 `chanclose`s whatever UIs the target already has, the tmux `attach -d` that was never
-optional here. The detached client exits **0** like `:detach` (measured), so with the
+optional here. The detach runs in an external client process with a 1s timeout: a target
+wedged mid-command (half-typed count, hit-enter prompt) queues RPC without serving it, and
+a synchronous request from the hopping server froze it and every UI on it (measured live).
+On timeout the hop proceeds with the stale UI still attached — a clamped grid beats a
+freeze. The detached client exits **0** like `:detach` (measured), so with the
 iTerm line above the old window just ends its ssh session instead of falling into a shell.
 The one exception: `nt` run from a `:terminal` of the *same* server it targets kills
 nothing — the UI rendering that terminal is attached there, and closing it would close you.

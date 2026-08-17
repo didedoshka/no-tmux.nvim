@@ -45,21 +45,31 @@ end
 -- target before swinging ours there -- nvim sizes the shared grid to the
 -- smallest attached UI, so a stale client clamps every later one. The
 -- detached client exits 0 like :detach (measured live).
-local function detach_uis(path)
-    local connected, chan = pcall(vim.fn.sockconnect, "pipe", path, { rpc = true })
-    if not connected or chan == 0 then
-        return
+-- Through an external client process with a timeout, never a blocking
+-- rpcrequest from this server: a target wedged mid-command (half-typed
+-- count, hit-enter prompt) queues RPC without serving it, and the
+-- synchronous version froze this server and every UI on it until the
+-- target got a key (measured live, 2026-08-17). On timeout the hop
+-- proceeds anyway -- a clamped grid beats a freeze.
+local DETACH_EXPR = [[luaeval("(function() for _, ui in ipairs(vim.api.nvim_list_uis()) do vim.fn.chanclose(ui.chan) end return 0 end)()")]]
+local function detach_uis(path, then_cb)
+    local started = pcall(vim.system,
+        { "nvim", "-u", "NONE", "--server", path, "--remote-expr", DETACH_EXPR },
+        { timeout = 1000 },
+        function()
+            vim.schedule(then_cb)
+        end)
+    if not started then
+        then_cb()
     end
-    pcall(vim.rpcrequest, chan, "nvim_exec_lua",
-        "for _, ui in ipairs(vim.api.nvim_list_uis()) do vim.fn.chanclose(ui.chan) end", {})
-    pcall(vim.fn.chanclose, chan)
 end
 
 -- :connect %-expands its argument, and every socket name contains % --
 -- fnameescape or the hop dies with E499 (verified live).
 local function hop(path)
-    detach_uis(path)
-    vim.cmd("connect " .. vim.fn.fnameescape(path))
+    detach_uis(path, function()
+        vim.cmd("connect " .. vim.fn.fnameescape(path))
+    end)
 end
 
 -- poll cond every 100ms until it holds (-> ok) or tries run out (-> fail);
