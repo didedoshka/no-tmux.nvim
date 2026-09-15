@@ -141,7 +141,7 @@ cancels the restart but leaves that reattach order armed forever, and the *next*
 kills the UI with `connection refused` (measured live). So `:Restart` asks *before* the
 restart instead: while any terminal buffer exists (fzf pickers excepted) a `confirm()`
 lists them — bufnr, title, and the shell's running children via
-`require("no-tmux.quitguard").running(buf)` — with restart / cancel, cancel as the default.
+`require("no-tmux.quitguard").running(buf)` — enter restarts, esc (or cancel) keeps everything.
 A headless instance cannot answer and never restarts over a terminal. `killed-jobs.txt`
 still keeps the record of what was killed.
 

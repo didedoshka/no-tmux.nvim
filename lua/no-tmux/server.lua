@@ -298,7 +298,8 @@ function M.setup()
             end
             if #lines > 0 then
                 table.insert(lines, 1, ("Restart kills %d terminal(s):"):format(#lines))
-                if vim.fn.confirm(table.concat(lines, "\n"), "&restart\n&cancel", 2) ~= 1 then
+                -- restart is the default so enter confirms; esc answers 0, cancel
+                if vim.fn.confirm(table.concat(lines, "\n"), "&restart\n&cancel", 1) ~= 1 then
                     return
                 end
             end
