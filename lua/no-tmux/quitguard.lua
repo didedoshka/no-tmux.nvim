@@ -107,6 +107,42 @@ function M.describe(buf)
     return lines
 end
 
+-- a kill prompt: the lines in a centred float, last line "enter: <verb>
+-- esc: cancel"; true only on enter, any other key cancels. Not confirm()
+-- (lettered buttons), and not the message area: inside an fzf-lua action a
+-- scrolled multi-line message hides behind a press-enter that eats the
+-- first enter (measured under a pty). A headless instance has nobody to
+-- ask and gets false.
+function M.ask(lines, verb)
+    if #vim.api.nvim_list_uis() == 0 then
+        return false
+    end
+    local text = vim.list_extend(vim.deepcopy(lines),
+        { "", ("enter: %s  esc: cancel"):format(verb) })
+    local width = 0
+    for _, line in ipairs(text) do
+        width = math.max(width, vim.fn.strdisplaywidth(line))
+    end
+    width = math.min(width, vim.o.columns - 4)
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, text)
+    local win = vim.api.nvim_open_win(buf, false, {
+        relative = "editor",
+        style = "minimal",
+        border = "single",
+        width = width,
+        height = #text,
+        row = math.floor((vim.o.lines - #text) / 2),
+        col = math.floor((vim.o.columns - width) / 2),
+        zindex = 250, -- above fzf-lua's window
+    })
+    vim.cmd("redraw")
+    local ok, key = pcall(vim.fn.getchar)
+    vim.api.nvim_win_close(win, true)
+    vim.api.nvim_buf_delete(buf, { force = true })
+    return ok and key == 13
+end
+
 -- terminal buffers whose shell is running something, with the child commands.
 -- fzf-lua runs its picker in a terminal buffer (filetype "fzf") and can leave
 -- one behind with a live fzf in it -- a picker is never work worth saving, so

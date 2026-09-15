@@ -282,8 +282,8 @@ function M.setup()
     -- their jobs, and under the litre model terminals are disposable anyway.
     -- The quit kills them silently (quitguard is exempt on a restart), so
     -- they are listed (quitguard.describe: cwd, commands, screen) and
-    -- confirmed first; headless confirm() answers 0, so a UI-less instance
-    -- never restarts over a terminal.
+    -- confirmed first with enter; a UI-less instance never restarts over a
+    -- terminal.
     if vim.fn.exists(":restart") == 2 then
         vim.api.nvim_create_user_command("Restart", function()
             local lines, count = {}, 0
@@ -295,8 +295,7 @@ function M.setup()
             end
             if count > 0 then
                 table.insert(lines, 1, ("Restart kills %d terminal(s):"):format(count))
-                -- restart is the default so enter confirms; esc answers 0, cancel
-                if vim.fn.confirm(table.concat(lines, "\n"), "&restart\n&cancel", 1) ~= 1 then
+                if not require("no-tmux.quitguard").ask(lines, "restart") then
                     return
                 end
             end

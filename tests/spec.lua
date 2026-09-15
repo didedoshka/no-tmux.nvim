@@ -57,22 +57,26 @@ do
     check("describe() has the shell's cwd", desc:find("\n  cwd: ", 1, true) ~= nil)
     check("describe() has the full command line", desc:find("running: sleep 30", 1, true) ~= nil)
 
-    -- :Restart lists the terminal and what it runs; esc (confirm() answers 0)
-    -- keeps the session. A stub answers: the real confirm() has no UI here
+    -- :Restart lists the terminal and what it runs, and only enter goes on.
+    -- Headless, ask() has nobody to ask and answers false on its own; a stub
+    -- captures what it would have shown
     if vim.fn.exists(":restart") == 2 then
-        local asked, default
-        local confirm = vim.fn.confirm
-        vim.fn.confirm = function(msg, choices, dflt)
-            asked, default = msg, dflt
-            return 0
+        local quitguard = require("no-tmux.quitguard")
+        check("ask() headless answers false", quitguard.ask({ "x" }, "y") == false)
+        local asked, verb
+        local ask = quitguard.ask
+        ---@diagnostic disable-next-line: duplicate-set-field
+        quitguard.ask = function(lines, v)
+            asked, verb = table.concat(lines, "\n"), v
+            return false
         end
         vim.cmd("Restart")
-        vim.fn.confirm = confirm
+        quitguard.ask = ask
         check(":Restart asks before killing the terminal",
             asked ~= nil and asked:find("term " .. term .. ":", 1, true) ~= nil)
         check(":Restart prompt names the running command",
             asked ~= nil and asked:find("running: sleep 30", 1, true) ~= nil)
-        check(":Restart is the enter answer", default == 1)
+        check(":Restart is the enter verb", verb == "restart")
         check(":Restart cancelled keeps the terminal", vim.api.nvim_buf_is_valid(term))
     end
 

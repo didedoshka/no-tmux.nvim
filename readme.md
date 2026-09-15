@@ -139,10 +139,13 @@ kills still logged. By the time the quit runs, `ex_restart` has already handed t
 to the respawned server and told every UI to reattach to it on exit — refusing the quit
 cancels the restart but leaves that reattach order armed forever, and the *next* real quit
 kills the UI with `connection refused` (measured live). So `:Restart` asks *before* the
-restart instead: while any terminal buffer exists (fzf pickers excepted) a `confirm()`
-lists them via `require("no-tmux.quitguard").describe(buf)` — bufnr and title, the shell's
-cwd, every running command in full (`/proc/<pid>/cmdline`) and the last three lines on its
-screen — enter restarts, esc (or cancel) keeps everything.
+restart instead: while any terminal buffer exists (fzf pickers excepted) it lists them via
+`require("no-tmux.quitguard").describe(buf)` — bufnr and title, the shell's cwd, every
+running command in full (`/proc/<pid>/cmdline`) and the last three lines on its screen —
+and `quitguard.ask(lines, verb)` shows them in a centred float and waits for one key: enter
+restarts, anything else (esc) keeps everything. Not `confirm()`, which adds lettered
+buttons, and not the message area: inside an fzf-lua action a scrolled multi-line message
+sits behind a press-enter that eats the first enter (measured).
 A headless instance cannot answer and never restarts over a terminal. `killed-jobs.txt`
 still keeps the record of what was killed.
 
