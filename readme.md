@@ -83,7 +83,7 @@ login immediately becomes a UI client.
 
 | command | does |
 | --- | --- |
-| `:Restart` | `:restart` with the layout preserved: mksession (terminals excluded — restoring would respawn jobs) + `restart source` |
+| `:Restart` | `:restart` with the layout preserved: mksession (terminals excluded — restoring would respawn jobs) + `restart source`; open terminals are listed and confirmed first |
 | `:RestartAll` | `:Restart` for the whole fleet: every other server, then this one |
 | `:Connect` | hop this UI to another live server, `vim.ui.select` picker |
 | `:FzfConnect` | the pinned-servers picker (below); warns when there is nothing to list |
@@ -138,9 +138,12 @@ A `:restart` quit (`v:exitreason` is `restart`/`restart!`) is exempt: no prompt,
 kills still logged. By the time the quit runs, `ex_restart` has already handed the socket
 to the respawned server and told every UI to reattach to it on exit — refusing the quit
 cancels the restart but leaves that reattach order armed forever, and the *next* real quit
-kills the UI with `connection refused` (measured live). `:Restart` deliberately does not
-ask first either — restarting is itself the considered act, and `killed-jobs.txt` keeps
-the record of what to re-run.
+kills the UI with `connection refused` (measured live). So `:Restart` asks *before* the
+restart instead: while any terminal buffer exists (fzf pickers excepted) a `confirm()`
+lists them — bufnr, title, and the shell's running children via
+`require("no-tmux.quitguard").running(buf)` — with restart / cancel, cancel as the default.
+A headless instance cannot answer and never restarts over a terminal. `killed-jobs.txt`
+still keeps the record of what was killed.
 
 ## habit
 

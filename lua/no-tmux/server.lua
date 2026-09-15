@@ -280,8 +280,28 @@ function M.setup()
     -- so save a session first and source it in the new server. Terminal
     -- buffers are kept out of the session -- restoring them would respawn
     -- their jobs, and under the litre model terminals are disposable anyway.
+    -- The quit kills them silently (quitguard is exempt on a restart), so
+    -- they are listed, with what each shell is running, and confirmed first;
+    -- headless confirm() answers 0, so a UI-less instance never restarts
+    -- over a terminal.
     if vim.fn.exists(":restart") == 2 then
         vim.api.nvim_create_user_command("Restart", function()
+            local lines = {}
+            for _, b in ipairs(vim.api.nvim_list_bufs()) do
+                if vim.bo[b].buftype == "terminal" and vim.bo[b].filetype ~= "fzf" then
+                    local running = require("no-tmux.quitguard").running(b)
+                    local title = vim.b[b].term_title or ""
+                    table.insert(lines, ("  term %d: %s%s"):format(b,
+                        title ~= "" and title or vim.api.nvim_buf_get_name(b),
+                        #running > 0 and ("  -- running " .. table.concat(running, ", ")) or ""))
+                end
+            end
+            if #lines > 0 then
+                table.insert(lines, 1, ("Restart kills %d terminal(s):"):format(#lines))
+                if vim.fn.confirm(table.concat(lines, "\n"), "&restart\n&cancel", 2) ~= 1 then
+                    return
+                end
+            end
             local file = vim.fs.joinpath(vim.fn.stdpath("state"), "restart-session.vim")
             local saved = vim.o.sessionoptions
             vim.opt.sessionoptions:remove("terminal")

@@ -50,6 +50,27 @@ do
         return alive and #kids > 0
     end))
 
+    check("running() names the shell's child",
+        vim.tbl_contains(require("no-tmux.quitguard").running(term), "sleep"))
+
+    -- :Restart lists the terminal and what it runs, and a cancel keeps the
+    -- session (a stub answers; the real confirm() has no UI to draw on here)
+    if vim.fn.exists(":restart") == 2 then
+        local asked
+        local confirm = vim.fn.confirm
+        vim.fn.confirm = function(msg, choices, default)
+            asked = msg
+            return 2
+        end
+        vim.cmd("Restart")
+        vim.fn.confirm = confirm
+        check(":Restart asks before killing the terminal",
+            asked ~= nil and asked:find("term " .. term .. ":", 1, true) ~= nil)
+        check(":Restart prompt names the running command",
+            asked ~= nil and asked:find("running sleep", 1, true) ~= nil)
+        check(":Restart cancelled keeps the terminal", vim.api.nvim_buf_is_valid(term))
+    end
+
     vim.api.nvim_exec_autocmds("ExitPre", {})
     local buf = vim.g.quitguard_sentinel
     check("sentinel created", buf and vim.api.nvim_buf_is_valid(buf))

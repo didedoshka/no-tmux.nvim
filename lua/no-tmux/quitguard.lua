@@ -37,6 +37,22 @@ local function clear_sentinel()
     end
 end
 
+-- what the shell in a terminal buffer is running: the names of its child
+-- processes, empty for an idle shell (or a buffer whose job is gone)
+function M.running(buf)
+    local names = {}
+    local pid = vim.b[buf].terminal_job_pid
+    if not pid then
+        return names
+    end
+    local ok, children = pcall(vim.api.nvim_get_proc_children, pid)
+    for _, child in ipairs(ok and children or {}) do
+        local pok, proc = pcall(vim.api.nvim_get_proc, child)
+        table.insert(names, (pok and proc and proc.name) and proc.name or tostring(child))
+    end
+    return names
+end
+
 -- terminal buffers whose shell is running something, with the child commands.
 -- fzf-lua runs its picker in a terminal buffer (filetype "fzf") and can leave
 -- one behind with a live fzf in it -- a picker is never work worth saving, so
@@ -44,15 +60,9 @@ end
 local function busy_terms()
     local busy = {}
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-        if vim.bo[buf].buftype == "terminal" and vim.bo[buf].filetype ~= "fzf"
-            and vim.b[buf].terminal_job_pid then
-            local ok, children = pcall(vim.api.nvim_get_proc_children, vim.b[buf].terminal_job_pid)
-            if ok and #children > 0 then
-                local names = {}
-                for _, pid in ipairs(children) do
-                    local pok, proc = pcall(vim.api.nvim_get_proc, pid)
-                    table.insert(names, (pok and proc and proc.name) and proc.name or tostring(pid))
-                end
+        if vim.bo[buf].buftype == "terminal" and vim.bo[buf].filetype ~= "fzf" then
+            local names = M.running(buf)
+            if #names > 0 then
                 table.insert(busy, { buf = buf, names = names })
             end
         end
