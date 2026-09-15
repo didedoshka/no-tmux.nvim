@@ -281,23 +281,20 @@ function M.setup()
     -- buffers are kept out of the session -- restoring them would respawn
     -- their jobs, and under the litre model terminals are disposable anyway.
     -- The quit kills them silently (quitguard is exempt on a restart), so
-    -- they are listed, with what each shell is running, and confirmed first;
-    -- headless confirm() answers 0, so a UI-less instance never restarts
-    -- over a terminal.
+    -- they are listed (quitguard.describe: cwd, commands, screen) and
+    -- confirmed first; headless confirm() answers 0, so a UI-less instance
+    -- never restarts over a terminal.
     if vim.fn.exists(":restart") == 2 then
         vim.api.nvim_create_user_command("Restart", function()
-            local lines = {}
+            local lines, count = {}, 0
             for _, b in ipairs(vim.api.nvim_list_bufs()) do
                 if vim.bo[b].buftype == "terminal" and vim.bo[b].filetype ~= "fzf" then
-                    local running = require("no-tmux.quitguard").running(b)
-                    local title = vim.b[b].term_title or ""
-                    table.insert(lines, ("  term %d: %s%s"):format(b,
-                        title ~= "" and title or vim.api.nvim_buf_get_name(b),
-                        #running > 0 and ("  -- running " .. table.concat(running, ", ")) or ""))
+                    count = count + 1
+                    vim.list_extend(lines, require("no-tmux.quitguard").describe(b))
                 end
             end
-            if #lines > 0 then
-                table.insert(lines, 1, ("Restart kills %d terminal(s):"):format(#lines))
+            if count > 0 then
+                table.insert(lines, 1, ("Restart kills %d terminal(s):"):format(count))
                 -- restart is the default so enter confirms; esc answers 0, cancel
                 if vim.fn.confirm(table.concat(lines, "\n"), "&restart\n&cancel", 1) ~= 1 then
                     return

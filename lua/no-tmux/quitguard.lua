@@ -37,20 +37,74 @@ local function clear_sentinel()
     end
 end
 
--- what the shell in a terminal buffer is running: the names of its child
--- processes, empty for an idle shell (or a buffer whose job is gone)
-function M.running(buf)
-    local names = {}
+-- pids of the shell's children in a terminal buffer, empty for an idle
+-- shell (or a buffer whose job is gone)
+local function children(buf)
     local pid = vim.b[buf].terminal_job_pid
     if not pid then
-        return names
+        return {}
     end
-    local ok, children = pcall(vim.api.nvim_get_proc_children, pid)
-    for _, child in ipairs(ok and children or {}) do
-        local pok, proc = pcall(vim.api.nvim_get_proc, child)
-        table.insert(names, (pok and proc and proc.name) and proc.name or tostring(child))
+    local ok, pids = pcall(vim.api.nvim_get_proc_children, pid)
+    return ok and pids or {}
+end
+
+-- what the shell in a terminal buffer is running: its children's names
+function M.running(buf)
+    local names = {}
+    for _, pid in ipairs(children(buf)) do
+        local ok, proc = pcall(vim.api.nvim_get_proc, pid)
+        table.insert(names, (ok and proc and proc.name) and proc.name or tostring(pid))
     end
     return names
+end
+
+-- the full command line of a process: nvim_get_proc only knows the name,
+-- /proc has the arguments (NUL-separated); empty when unreadable
+local function cmdline(pid)
+    local f = io.open(("/proc/%d/cmdline"):format(pid), "rb")
+    if not f then
+        return ""
+    end
+    local raw = f:read("a") or ""
+    f:close()
+    return (raw:gsub("%z", " "):gsub("%s+$", ""))
+end
+
+-- one terminal buffer, described for a prompt that is about to kill it:
+-- title, the shell's cwd, each running command in full, and the last
+-- lines on its screen -- enough to tell terminals apart. Lines are cut at
+-- 80 columns so a confirm() stays readable.
+function M.describe(buf)
+    local function cut(line)
+        line = vim.trim(line)
+        return #line > 80 and (line:sub(1, 77) .. "...") or line
+    end
+    local title = vim.b[buf].term_title or ""
+    local lines = { ("term %d: %s"):format(buf,
+        title ~= "" and title or vim.api.nvim_buf_get_name(buf)) }
+    local pid = vim.b[buf].terminal_job_pid
+    local cwd = pid and vim.uv.fs_readlink(("/proc/%d/cwd"):format(pid))
+    if cwd then
+        table.insert(lines, "  cwd: " .. vim.fn.fnamemodify(cwd, ":~"))
+    end
+    for _, child in ipairs(children(buf)) do
+        local cmd = cmdline(child)
+        if cmd == "" then
+            local ok, proc = pcall(vim.api.nvim_get_proc, child)
+            cmd = (ok and proc and proc.name) and proc.name or tostring(child)
+        end
+        table.insert(lines, "  running: " .. cut(cmd))
+    end
+    local screen = {}
+    for _, line in ipairs(vim.api.nvim_buf_get_lines(buf, 0, -1, false)) do
+        if vim.trim(line) ~= "" then
+            table.insert(screen, cut(line))
+        end
+    end
+    for i = math.max(1, #screen - 2), #screen do
+        table.insert(lines, "  | " .. screen[i])
+    end
+    return lines
 end
 
 -- terminal buffers whose shell is running something, with the child commands.

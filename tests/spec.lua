@@ -52,6 +52,10 @@ do
 
     check("running() names the shell's child",
         vim.tbl_contains(require("no-tmux.quitguard").running(term), "sleep"))
+    local desc = table.concat(require("no-tmux.quitguard").describe(term), "\n")
+    check("describe() heads with the bufnr", desc:find("^term " .. term .. ":") ~= nil)
+    check("describe() has the shell's cwd", desc:find("\n  cwd: ", 1, true) ~= nil)
+    check("describe() has the full command line", desc:find("running: sleep 30", 1, true) ~= nil)
 
     -- :Restart lists the terminal and what it runs; esc (confirm() answers 0)
     -- keeps the session. A stub answers: the real confirm() has no UI here
@@ -67,7 +71,7 @@ do
         check(":Restart asks before killing the terminal",
             asked ~= nil and asked:find("term " .. term .. ":", 1, true) ~= nil)
         check(":Restart prompt names the running command",
-            asked ~= nil and asked:find("running sleep", 1, true) ~= nil)
+            asked ~= nil and asked:find("running: sleep 30", 1, true) ~= nil)
         check(":Restart is the enter answer", default == 1)
         check(":Restart cancelled keeps the terminal", vim.api.nvim_buf_is_valid(term))
     end
