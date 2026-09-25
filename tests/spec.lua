@@ -29,7 +29,7 @@ require("no-tmux").setup()
 check("setup re-runs cleanly", #vim.api.nvim_get_autocmds({ group = "quitguard" }) == 2)
 
 -- an idle instance must not be blocked from quitting: ExitPre with no busy
--- terminals and no litre tasks leaves no modified sentinel behind
+-- terminals and no liter tasks leaves no modified sentinel behind
 vim.api.nvim_exec_autocmds("ExitPre", {})
 local sentinel = vim.g.quitguard_sentinel
 check("idle quit unblocked", sentinel == nil or not vim.bo[sentinel].modified)
@@ -118,9 +118,9 @@ do
     vim.api.nvim_buf_delete(term, { force = true })
 end
 
--- quitguard arms its sentinel while a litre task runs, and only then
+-- quitguard arms its sentinel while a liter task runs, and only then
 do
-    package.loaded["litre.runner"] = {
+    package.loaded["liter.runner"] = {
         running_tasks = function()
             return { { id = "build" } }
         end,
@@ -128,10 +128,10 @@ do
 
     vim.api.nvim_exec_autocmds("ExitPre", {})
     local buf = vim.g.quitguard_sentinel
-    check("sentinel created for litre task", buf and vim.api.nvim_buf_is_valid(buf))
+    check("sentinel created for liter task", buf and vim.api.nvim_buf_is_valid(buf))
     check("sentinel armed with a task running", vim.bo[buf].modified)
     check("sentinel line names the running task",
-        vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1]:find("litre build", 1, true) ~= nil)
+        vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1]:find("liter build", 1, true) ~= nil)
 
     -- the flag self-clears right after the quit attempt it blocked
     check("sentinel self-clears after the quit attempt", vim.wait(1000, function()
@@ -139,7 +139,7 @@ do
     end))
 
     -- no running tasks: ExitPre must leave the sentinel unmodified
-    package.loaded["litre.runner"] = {
+    package.loaded["liter.runner"] = {
         running_tasks = function()
             return {}
         end,
@@ -147,7 +147,7 @@ do
     vim.api.nvim_exec_autocmds("ExitPre", {})
     check("sentinel unarmed with nothing running", not vim.bo[buf].modified)
 
-    package.loaded["litre.runner"] = nil
+    package.loaded["liter.runner"] = nil
 end
 
 -- SSH_AUTH_SOCK pin: setup() pins the env to ~/.ssh/ssh_auth_sock, and only

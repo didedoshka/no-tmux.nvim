@@ -12,7 +12,7 @@ project, `:Restart` is per-project, hopping is cheap.
 
 Requires an nvim with `:detach` / `:connect` / `:restart` (v0.13.0-dev on this box); the
 commands are existence-gated, so older builds simply get none of them. fzf-lua is optional
-(`:FzfConnect` only); litre integration activates only when litre is already loaded.
+(`:FzfConnect` only); liter integration activates only when liter is already loaded.
 
 ## Install
 
@@ -126,7 +126,7 @@ current one shows `(this)`. The source is `require("no-tmux.server").source`.
 
 A server `:qa` kills running jobs silently. On `ExitPre` — only a quit that would actually
 end the session; `:q` on a split never triggers it — while any terminal shell has a running
-child or a litre task is alive: with a UI attached, a `confirm()` prompt names the jobs and
+child or a liter task is alive: with a UI attached, a `confirm()` prompt names the jobs and
 asks stay / quit-and-kill; choosing quit exits normally. Staying, and any headless instance
 (which cannot answer — notably `:RestartAll`'s rpc `:qall`, marked by `g:quitguard_auto`),
 blocks the quit instead (E37 via a hidden modified sentinel buffer; headless also notifies

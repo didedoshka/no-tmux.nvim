@@ -15,7 +15,7 @@ tests/run.sh check    # just lua-language-server
 
 The spec runs end-to-end on `nvim --clean`: command registration and
 existence-gating, `setup()` re-running cleanly, the quitguard's whole
-sentinel lifecycle against real terminal jobs and a stubbed litre, the
+sentinel lifecycle against real terminal jobs and a stubbed liter, the
 SSH_AUTH_SOCK pin under a fabricated `$HOME`, and `:Connect`'s listing
 against a sandboxed `XDG_CACHE_HOME`. A PostToolUse hook runs the whole
 suite on every Lua edit. There is no standalone lua on this box;

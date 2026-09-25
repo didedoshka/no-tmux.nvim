@@ -1,8 +1,8 @@
 -- A server :qa kills running jobs silently (measured against a live
 -- --listen server with a real remote UI; the E948 that nvim raises in
 -- script -l mode is an artifact of that mode and never appears here). That
--- covers both kinds of job: terminal shells running something, and litre
--- tasks -- vim.system processes that belong to no buffer, which litre even
+-- covers both kinds of job: terminal shells running something, and liter
+-- tasks -- vim.system processes that belong to no buffer, which liter even
 -- reaps on VimLeavePre. On ExitPre -- so only a quit that would actually end
 -- the session; closing a split never fires it -- this recomputes what is
 -- busy and, while anything is: a real UI gets a confirm() prompt naming the
@@ -160,9 +160,9 @@ local function busy_terms()
     return busy
 end
 
-local function running_litre_tasks()
-    -- package.loaded, not require: the guard must not be the thing that loads litre
-    local runner = package.loaded["litre.runner"]
+local function running_liter_tasks()
+    -- package.loaded, not require: the guard must not be the thing that loads liter
+    local runner = package.loaded["liter.runner"]
     return runner and runner.running_tasks() or {}
 end
 
@@ -172,7 +172,7 @@ local function describe(terms, tasks)
         vim.list_extend(parts, t.names)
     end
     for _, task in ipairs(tasks) do
-        table.insert(parts, "litre " .. task.id)
+        table.insert(parts, "liter " .. task.id)
     end
     return table.concat(parts, ", ")
 end
@@ -194,7 +194,7 @@ function M.setup()
                 clear_sentinel()
                 return
             end
-            local terms, tasks = busy_terms(), running_litre_tasks()
+            local terms, tasks = busy_terms(), running_liter_tasks()
             if #terms == 0 and #tasks == 0 then
                 clear_sentinel()
                 return
@@ -235,7 +235,7 @@ function M.setup()
     vim.api.nvim_create_autocmd("VimLeavePre", {
         group = group,
         callback = function()
-            local terms, tasks = busy_terms(), running_litre_tasks()
+            local terms, tasks = busy_terms(), running_liter_tasks()
             if #terms == 0 and #tasks == 0 then
                 return
             end
@@ -246,7 +246,7 @@ function M.setup()
                 table.insert(lines, ("  term [%s]: %s"):format(cwd, table.concat(t.names, ", ")))
             end
             for _, task in ipairs(tasks) do
-                table.insert(lines, "  litre " .. task.id)
+                table.insert(lines, "  liter " .. task.id)
             end
             local state = vim.fn.stdpath("state") --[[@as string]]
             -- a fresh box (or the e2e sandbox) has no state dir yet, and

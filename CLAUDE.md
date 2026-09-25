@@ -15,8 +15,8 @@ lazy.nvim. Extracted from the nvim config's `plugin/` 2026-08-06.
 ## Invariants
 - Commands are existence-gated on `:connect`/`:restart` — older nvim builds must load
   cleanly and simply get fewer commands.
-- fzf-lua and litre stay optional: fzf-lua required only inside `:FzfConnect`'s callback,
-  litre only via `package.loaded` (the guard must never be what loads it).
+- fzf-lua and liter stay optional: fzf-lua required only inside `:FzfConnect`'s callback,
+  liter only via `package.loaded` (the guard must never be what loads it).
 - `setup()` must re-run cleanly: commands replace themselves, the quitguard augroup clears,
   the sentinel buffer is reused via `vim.g`.
 - `:connect` %-expands its argument and every socket name contains `%` — every hop goes

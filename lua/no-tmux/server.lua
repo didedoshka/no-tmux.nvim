@@ -279,7 +279,7 @@ function M.setup()
     -- :restart with the layout preserved: plain :restart forgets everything,
     -- so save a session first and source it in the new server. Terminal
     -- buffers are kept out of the session -- restoring them would respawn
-    -- their jobs, and under the litre model terminals are disposable anyway.
+    -- their jobs, and under the liter model terminals are disposable anyway.
     -- The quit kills them silently (quitguard is exempt on a restart), so
     -- they are listed (quitguard.describe: cwd, commands, screen) and
     -- confirmed first with enter; a UI-less instance never restarts over a
