@@ -1,7 +1,9 @@
 -- Loads the plugin under nvim --clean and checks the public surface. A real
 -- UI hop between servers cannot happen here (no --remote-ui client) -- that
 -- is a live check, see CLAUDE.md.
-local repo = vim.fs.dirname(vim.fs.dirname(vim.fs.normalize(debug.getinfo(1, "S").source:sub(2))))
+-- absolute, so its parent is where the sibling fzf-pin checkout lives
+local this = vim.fs.normalize(vim.fs.abspath(debug.getinfo(1, "S").source:sub(2)))
+local repo = vim.fs.dirname(vim.fs.dirname(this))
 vim.opt.rtp:prepend(repo)
 
 local failed = 0
@@ -222,7 +224,7 @@ end
 -- The sibling checkout is the dependency, like lazy.nvim loads it for real.
 -- run.sh sandboxes XDG_STATE_HOME, so the real pins are never touched.
 do
-    vim.opt.rtp:prepend(vim.fn.expand("~/personal/fzf-pin.nvim"))
+    vim.opt.rtp:prepend(vim.fs.joinpath(vim.fs.dirname(repo), "fzf-pin.nvim"))
     local store = require("fzf-pin.store")
     local source = require("no-tmux.server").source
 
