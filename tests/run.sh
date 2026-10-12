@@ -35,6 +35,16 @@ fi
 
 if [[ "$what" == "all" || "$what" == "spec" ]]; then
     echo "== spec (nvim --clean)"
+    # fzf-pin, for the server-source tests: FZF_PIN_DIR when the caller sets it,
+    # else where lazy.nvim loads it from -- a checkout next to this one, or lazy's
+    # clone
+    if [[ -z "${FZF_PIN_DIR:-}" ]]; then
+        FZF_PIN_DIR="$(dirname "$repo")/fzf-pin.nvim"
+        [[ -d "$FZF_PIN_DIR" ]] \
+            || FZF_PIN_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/nvim/lazy/fzf-pin.nvim"
+    fi
+    export FZF_PIN_DIR
+    echo "  fzf-pin: $FZF_PIN_DIR"
     # sandboxed cache and state: the spec fabricates sockets in
     # stdpath("cache")/servers and pins through the fzf-pin store in
     # stdpath("state") -- it must never see (or write) the real ones
