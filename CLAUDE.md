@@ -8,7 +8,7 @@ lazy.nvim. Extracted from the nvim config's `plugin/` 2026-08-06.
 - `lua/no-tmux/init.lua` — `setup()`, nothing else. `server.lua` = SSH_AUTH_SOCK pin, `:Restart`/`:RestartAll`,
   `:Connect`/`:FzfConnect`. `quitguard.lua` = the `:qa` job guard. `habit.lua` = the
   `:q`/`:qa` retrain, installed only when `server.is_nt_server()`.
-- `fish/` — canonical `nt` (`nt [dir]` + `nt --ls`); `~/.config/fish/functions/` holds symlinks here.
+- `fish/` — canonical `nt` (`nt [dir]` + `nt --ls`); config.fish puts this dir on `fish_function_path`.
 - **`readme.md` is the spec** — a behaviour change is incomplete until it matches.
 - `notes/nvim-as-tmux.md` — the research and dated implementation log.
 

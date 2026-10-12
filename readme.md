@@ -16,18 +16,20 @@ commands are existence-gated, so older builds simply get none of them. fzf-lua i
 
 ## Install
 
-lazy.nvim, local checkout:
+lazy.nvim, as a dev plugin (the checkout in `dev.path` when there is one, a github clone
+otherwise):
 
     {
-        dir = vim.fn.expand("~/personal/no-tmux.nvim"),
+        "didedoshka/no-tmux.nvim",
+        dev = true,
         config = function()
             require("no-tmux").setup()
         end,
     }
 
-fish half: symlink the function into the autoload dir —
+fish half: put `fish/` on fish's function path, in config.fish —
 
-    ln -s ~/personal/no-tmux.nvim/fish/nt.fish ~/.config/fish/functions/
+    set -p fish_function_path ~/p/no-tmux.nvim/fish
 
 ## fish commands
 
