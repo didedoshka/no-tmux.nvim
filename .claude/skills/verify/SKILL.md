@@ -31,8 +31,9 @@ tests/run.sh e2e      # tests/e2e.sh; ~5s, so not part of "all"
 Starts real detached `--listen` servers with `HOME` and every XDG dir
 sandboxed under a mktemp tree (the real `~/.cache/nvim/servers` is never
 touched): the SSH_AUTH_SOCK pin at startup and its inheritance by terminal
-jobs, `:Connect` excluding the server's own socket, and quitguard against a
-real `:qa` / `:qa!` including the killed-jobs.txt log.
+jobs, nt's agent link refresh under a sandboxed `fish -N`, `:Connect`
+excluding the server's own socket, and quitguard against a real `:qa` /
+`:qa!` including the killed-jobs.txt log.
 
 ## Tier 3 — needs a real UI or a human
 
@@ -48,7 +49,7 @@ check by hand:
   hop works — a hop that "returned" can still have left zero UIs attached.
 - **`:Connect` escaping**: every socket name contains `%`; a path that avoids
   `fnameescape` is E499 in a live client even though the spec passes.
-- **the fish half** (`nt`, `nt --ls`): the tests never touch fish.
+- **the fish half** (`nt`, `nt --ls`): e2e covers only `__nt_link_agent`; the rest is untested.
   Exercise from a real shell; the iTerm ssh line additionally needs an ssh session.
 - **SSH_AUTH_SOCK against a real agent**: e2e proves the pin mechanics; that
   `ssh -A` actually authenticates from a terminal buffer in a server that

@@ -163,11 +163,19 @@ end the session), and the `!` forms are untouched, since `:qa!` is the considere
 and the one quitguard points you at. Implemented as cmdline abbreviations to `:NtQ`/`:NtQa`,
 which take a bang and pass it through; typed cmdline only, so a plugin's `:qa` still quits.
 
-Pinned server-side to `~/.ssh/ssh_auth_sock`; a bashrc login hook repoints that symlink at
-every ssh login, so terminal buffers keep a working agent however old the server is (tmux
-did this with `set-environment -g`). The pin happens whenever the symlink itself exists,
-even dangling — a server started after its agent died still heals at the next login. Only
-a box without the symlink at all is left alone.
+Pinned server-side to `~/.ssh/no-tmux-agent.sock`, a symlink `nt` repoints at the login's
+agent every time it runs, so terminal buffers keep a working agent however old the server
+is (tmux did this with `set-environment -g`). The link is no-tmux's own: `SSH_AUTH_SOCK`
+outside the servers, and any agent setup of your own (a bashrc hook, `~/.ssh/rc`), are
+never touched. `nt` only repoints it from a real login with a live agent — never from a
+`:terminal`, whose `SSH_AUTH_SOCK` is the link itself or a stale inherited path. The pin
+happens whenever the link exists, even dangling — a server started after its agent died
+still heals at the next login. Only a box where `nt` never saw an agent is left alone.
+
+Last login wins: with two ssh sessions open, closing the one that ran `nt` last leaves the
+link dangling for every server until the next `nt` login, even though the other session's
+agent is alive. Accepted — in practice an attach detaches the older window, which ends its
+session anyway.
 
 `$SHELL` and `'shell'` are pinned to fish the same way (tmux: `default-shell`): `'shell'`
 is seeded from `$SHELL`, inherited from whatever spawned the server, so a respawn chain

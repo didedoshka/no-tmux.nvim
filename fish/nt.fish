@@ -13,6 +13,8 @@ function nt --description "attach to the project nvim server, starting it if nee
         return
     end
 
+    __nt_link_agent
+
     if test (count $argv) -gt 0
         set -f dir (realpath $argv[1]); or return 1
     else
@@ -56,6 +58,18 @@ function nt --description "attach to the project nvim server, starting it if nee
         nvim --server $NVIM --remote-expr "execute('connect ' .. fnameescape('$sock'))" >/dev/null
     else
         nvim --server $sock --remote-ui
+    end
+end
+
+# Refresh the link the servers pin SSH_AUTH_SOCK to (server.lua) -- no-tmux's
+# own, so the user's agent setup outside the servers is untouched. Only from a
+# real login with a live agent: inside a :terminal SSH_AUTH_SOCK is the link
+# itself or a stale inherited path, and either would clobber it.
+function __nt_link_agent
+    set -l link ~/.ssh/no-tmux-agent.sock
+    if not set -q NVIM; and test "$SSH_AUTH_SOCK" != $link; and test -S "$SSH_AUTH_SOCK"
+        mkdir -p -m 700 ~/.ssh
+        ln -sf $SSH_AUTH_SOCK $link
     end
 end
 

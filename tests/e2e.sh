@@ -4,10 +4,11 @@
 # is never touched. Covers what spec.lua cannot:
 #   - the SSH_AUTH_SOCK pin at server startup, and that terminal jobs
 #     spawned later inherit it
-#   - the pin staying out of the way when ~/.ssh/ssh_auth_sock is absent
+#   - the pin staying out of the way when ~/.ssh/no-tmux-agent.sock is absent
 #   - :Connect excluding the server's own socket and decoding labels
 #   - quitguard against a real :qa (blocked while a terminal is busy) and
 #     :qa! (kills, and logs to state/killed-jobs.txt)
+#   - nt's agent link refresh (fish), only from a real login with a live agent
 #   - quitguard letting a :restart quit through unprompted (a refusal would
 #     poison the UI's reattach order -- see the ExitPre comment)
 # A real UI hop still needs a --remote-ui client -- see the verify skill.
@@ -56,13 +57,13 @@ rlua() { rexpr "$1" "luaeval('dofile(_A)', '$2')" >/dev/null; }
 # --- server A: pinned agent sock, sockets dir laid out like `nt` does -------
 home_a="$tmp/a"
 mkdir -p "$home_a/.ssh"
-touch "$home_a/.ssh/ssh_auth_sock"     # production is a symlink; stats the same
+touch "$home_a/.ssh/no-tmux-agent.sock"     # production is a symlink; stats the same
 sock_a="$home_a/cache/nvim/servers/%proj%a"
 export SSH_AUTH_SOCK="$tmp/stale-agent.sock"
 start_server "$home_a" "$sock_a"
 
 check "SSH_AUTH_SOCK pinned at startup" \
-    "$(rexpr "$sock_a" '$SSH_AUTH_SOCK')" "$home_a/.ssh/ssh_auth_sock"
+    "$(rexpr "$sock_a" '$SSH_AUTH_SOCK')" "$home_a/.ssh/no-tmux-agent.sock"
 
 # a terminal job spawned in the server sees the pin, not the stale value
 cat > "$tmp/terms.lua" <<EOF
@@ -77,7 +78,7 @@ EOF
 rlua "$sock_a" "$tmp/terms.lua"
 for _ in $(seq 50); do [[ -s "$tmp/term-env" ]] && break; sleep 0.1; done
 check "terminal job inherits the pin" "$(cat "$tmp/term-env" 2>/dev/null)" \
-    "$home_a/.ssh/ssh_auth_sock"
+    "$home_a/.ssh/no-tmux-agent.sock"
 
 # --- :Connect: own socket excluded, % decoded ---------------------------------
 touch "$home_a/cache/nvim/servers/%data%project%x"
@@ -181,7 +182,7 @@ EOF
     pkill -f -- "--listen $sock_r" 2>/dev/null
 fi
 
-# --- server B: no ~/.ssh/ssh_auth_sock -> env left alone -----------------------
+# --- server B: no ~/.ssh/no-tmux-agent.sock -> env left alone -----------------------
 home_b="$tmp/b"
 mkdir -p "$home_b"
 sock_b="$home_b/cache/nvim/servers/%proj%b"
@@ -192,24 +193,24 @@ check "SSH_AUTH_SOCK untouched without the symlink" \
 nvim --server "$sock_b" --remote-send ':qa!<CR>' 2>/dev/null
 
 # --- server C: dangling symlink at startup ------------------------------------
-# The real ~/.ssh/ssh_auth_sock is a symlink into /tmp/ssh-*/agent.*, and sshd
+# The real ~/.ssh/no-tmux-agent.sock is a symlink into /tmp/ssh-*/agent.*, and sshd
 # removes that target when its session ends. A server started in that window
 # must still pin: the next ssh login repoints the symlink and the pin becomes
 # valid -- skipping it would freeze the stale inherited value in forever.
 home_c="$tmp/c"
 mkdir -p "$home_c/.ssh"
-ln -s "$tmp/gone-session-agent.sock" "$home_c/.ssh/ssh_auth_sock"
+ln -s "$tmp/gone-session-agent.sock" "$home_c/.ssh/no-tmux-agent.sock"
 sock_c="$home_c/cache/nvim/servers/%proj%c"
 export SSH_AUTH_SOCK="$tmp/stale-agent.sock"
 start_server "$home_c" "$sock_c"
 
 check "SSH_AUTH_SOCK pinned while the symlink dangles" \
-    "$(rexpr "$sock_c" '$SSH_AUTH_SOCK')" "$home_c/.ssh/ssh_auth_sock"
+    "$(rexpr "$sock_c" '$SSH_AUTH_SOCK')" "$home_c/.ssh/no-tmux-agent.sock"
 
-# "next ssh login": the hook repoints the symlink; a terminal job spawned now
+# "next ssh login": nt repoints the symlink; a terminal job spawned now
 # must reach the fresh agent through the pin
 touch "$tmp/fresh-agent.sock"
-ln -sf "$tmp/fresh-agent.sock" "$home_c/.ssh/ssh_auth_sock"
+ln -sf "$tmp/fresh-agent.sock" "$home_c/.ssh/no-tmux-agent.sock"
 cat > "$tmp/term-c.lua" <<EOF
 local buf = vim.api.nvim_create_buf(true, false)
 vim.api.nvim_set_current_buf(buf)
@@ -269,6 +270,45 @@ check "session restored: split buffer" \
 # the respawned E is not in our pids list -- shut it down explicitly
 nvim --server "$sock_e" --remote-send ':qa!<CR>' 2>/dev/null
 nvim --server "$sock_d" --remote-send ':qa!<CR>' 2>/dev/null
+
+# --- fish: nt's agent link refresh ---------------------------------------------
+# __nt_link_agent repoints ~/.ssh/no-tmux-agent.sock from a real login only.
+# Any live unix socket passes test -S, so a server socket stands in for the
+# agent. The sandboxed fish never reads the real config (-N).
+if command -v fish >/dev/null; then
+    home_f="$tmp/f"
+    mkdir -p "$home_f"
+    agent="$home_f/cache/nvim/servers/%agent"
+    start_server "$home_f" "$agent"
+    link="$home_f/.ssh/no-tmux-agent.sock"
+    # link_agent <SSH_AUTH_SOCK> [NVIM] -- run the helper in a sandboxed fish
+    link_agent() {
+        env -u NVIM HOME="$home_f" SSH_AUTH_SOCK="$1" ${2:+NVIM="$2"} \
+            fish -N -c "source '$repo/fish/nt.fish'; __nt_link_agent"
+    }
+
+    link_agent "$tmp/no-such-agent.sock"
+    check "no link from a dead agent" "$([[ -e $link || -L $link ]] && echo yes)" ""
+    link_agent "$agent"
+    check "link made from a live login" "$(readlink "$link")" "$agent"
+    check "~/.ssh created 700" "$(stat -c %a "$home_f/.ssh")" "700"
+
+    # inside a :terminal: a stale inherited path must not clobber the link,
+    # and neither must a live one -- that terminal's login is not the newest
+    link_agent "$tmp/stale-agent.sock" "$agent"
+    check "stale :terminal leaves the link" "$(readlink "$link")" "$agent"
+    agent2="$home_f/cache/nvim/servers/%agent2"
+    start_server "$home_f" "$agent2"
+    link_agent "$agent2" "$agent"
+    check "live :terminal leaves the link" "$(readlink "$link")" "$agent"
+    # the link itself as SSH_AUTH_SOCK must not turn into a self-loop
+    link_agent "$link"
+    check "the link never points at itself" "$(readlink "$link")" "$agent"
+    link_agent "$agent2"
+    check "a newer login repoints the link" "$(readlink "$link")" "$agent2"
+else
+    echo "  skip  fish: not installed"
+fi
 
 if (( failed > 0 )); then
     echo "$failed e2e checks failed"

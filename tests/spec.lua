@@ -150,9 +150,9 @@ do
     package.loaded["liter.runner"] = nil
 end
 
--- SSH_AUTH_SOCK pin: setup() pins the env to ~/.ssh/ssh_auth_sock, and only
--- when that path exists. Production is a symlink kept fresh by the bashrc
--- login hook; a plain file stats the same, so it stands in here.
+-- SSH_AUTH_SOCK pin: setup() pins the env to ~/.ssh/no-tmux-agent.sock, and
+-- only when that path exists. Production is a symlink kept fresh by nt at
+-- every login; a plain file stats the same, so it stands in here.
 do
     local saved_home = vim.env.HOME
     local saved_sock = vim.env.SSH_AUTH_SOCK
@@ -163,13 +163,13 @@ do
     vim.env.SSH_AUTH_SOCK = "/run/original-agent.sock"
 
     require("no-tmux.server").setup()
-    check("SSH_AUTH_SOCK untouched while ~/.ssh/ssh_auth_sock is absent",
+    check("SSH_AUTH_SOCK untouched while ~/.ssh/no-tmux-agent.sock is absent",
         vim.env.SSH_AUTH_SOCK == "/run/original-agent.sock")
 
-    local pin = home .. "/.ssh/ssh_auth_sock"
+    local pin = home .. "/.ssh/no-tmux-agent.sock"
     vim.fn.writefile({}, pin)
     require("no-tmux.server").setup()
-    check("SSH_AUTH_SOCK pinned once ~/.ssh/ssh_auth_sock exists", vim.env.SSH_AUTH_SOCK == pin)
+    check("SSH_AUTH_SOCK pinned once ~/.ssh/no-tmux-agent.sock exists", vim.env.SSH_AUTH_SOCK == pin)
 
     -- the symlink dangles whenever the session that made its target has
     -- ended; the pin must still happen -- the next login repoints it

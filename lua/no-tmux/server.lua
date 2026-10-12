@@ -253,14 +253,16 @@ M.source = {
 }
 
 function M.setup()
-    -- The bashrc login hook repoints ~/.ssh/ssh_auth_sock at every ssh login;
-    -- pinning the env to that stable path keeps ssh -A working in every
-    -- terminal buffer however old the server is (tmux did this with
-    -- set-environment -g). lstat, not stat: the symlink dangles whenever the
-    -- session that created its /tmp/ssh-*/agent.* target has ended, and a
-    -- server started in that window must still pin -- the next login makes
-    -- it valid. Only a box without the symlink at all skips the pin.
-    local auth_sock = vim.fs.normalize("~/.ssh/ssh_auth_sock")
+    -- nt (fish/nt.fish) repoints ~/.ssh/no-tmux-agent.sock at every ssh login
+    -- it runs in; pinning the env to that stable path keeps ssh -A working in
+    -- every terminal buffer however old the server is (tmux did this with
+    -- set-environment -g). The link is no-tmux's own, so whatever the user
+    -- does with SSH_AUTH_SOCK outside the servers is left alone. lstat, not
+    -- stat: the link dangles whenever the session that created its
+    -- /tmp/ssh-*/agent.* target has ended, and a server started in that
+    -- window must still pin -- the next login makes it valid. Only a box
+    -- where nt never saw an agent skips the pin.
+    local auth_sock = vim.fs.normalize("~/.ssh/no-tmux-agent.sock")
     if vim.uv.fs_lstat(auth_sock) then
         vim.env.SSH_AUTH_SOCK = auth_sock
     end

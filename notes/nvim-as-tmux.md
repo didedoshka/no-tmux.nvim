@@ -46,6 +46,9 @@ running nightly means occasionally being the person who finds the bug.
 
 ## SSH_AUTH_SOCK — current tmux solution carries over as-is
 
+*Superseded 2026-10-12 (see the entry at the end): the link is now no-tmux's own and `nt`
+writes it; the bashrc hook below lived only on the old box and never reached dotfiles.*
+
 The working mechanism today (verified live: symlink fresh, agent answers
 `ssh-add -l` through it):
 
@@ -119,3 +122,21 @@ Multiple UIs were never useful here, so every attach now detaches the rest:
 - Measured: `chanclose` on the UI channel makes the `--remote-ui` client
   exit **0**, same as `:detach` — the stale iTerm window ends its ssh
   session cleanly instead of hitting the `; or exec fish` valve.
+
+## Implemented 2026-10-12 — nt owns the agent link
+
+A fresh box (dotfiles installed, stock `~/.bashrc`) had no `~/.ssh/ssh_auth_sock`: the
+bashrc login hook was never in dotfiles. The pin skipped silently, the `~` server kept the
+raw `/tmp/ssh-*/agent.*` of the login that spawned it, and once that session ended every
+terminal got "SSH agent connection failed".
+
+- The writing half moves into no-tmux: `__nt_link_agent` (fish/nt.fish), called by every
+  `nt` attach, which is the entry point of every iTerm login. Guarded: not inside `$NVIM`
+  (a `:terminal`'s value is the link or a stale path), not when `SSH_AUTH_SOCK` already is
+  the link, and only for a live socket (`test -S`).
+- Dedicated name `~/.ssh/no-tmux-agent.sock` instead of `~/.ssh/ssh_auth_sock`, so a user's
+  own agent handling for plain sessions coexists — neither side clobbers the other.
+- Kept: last login wins; closing the newest of two sessions dangles the link until the next
+  `nt` login. A repair-on-exit in `nt` would fail exactly when ssh drops (fish gets the
+  hangup), so not worth it.
+- e2e covers the helper under a sandboxed `fish -N`.
