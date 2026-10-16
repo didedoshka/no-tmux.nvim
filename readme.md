@@ -114,15 +114,21 @@ config (lazy.nvim installs missing plugins at startup).
 ## Pinned servers
 
 `:FzfConnect` opens an [fzf-pin](../fzf-pin.nvim) picker: pinned servers first as
-`[e] /path/to/project`, then the other live ones. A pinned char hops immediately; a free
-char pins the *current* server to that char (refused when this instance's socket is not a
-no-tmux one); `ctrl-x` unpins; `i` drops into fuzzy search. Pins are stored globally by
-project
+`[e] /path/to/project`, then this server and the other live ones. A pinned char hops
+immediately; a free char pins the highlighted server to that char, and the picker stays
+open; `i` drops into fuzzy search. Pins are stored globally by project
 label — the fzf-pin store, `servers` namespace — so they survive socket churn across
 restarts. A pinned server with no live socket shows `(down)`; activating it starts the
 server the way `nt` would (detached, in the project directory the label names) and hops
 there once the socket appears — refused only when that directory no longer exists. The
 current one shows `(this)`. The source is `require("no-tmux.server").source`.
+
+`ctrl-x` unpins a pinned server; on an unpinned one it kills the server, after the
+`quitguard.ask` float names what still runs there (that server's `quitguard.busy()`, asked
+over `--remote-expr` with a 1s timeout — a wedged server just goes unnamed). The kill is a
+`:qa!` sent over RPC, so the target's quitguard logs its jobs to `killed-jobs.txt`; the list
+reloads once the socket is gone. A socket nobody listens on is removed instead. The server
+you are in is never killed from its own picker — `:qa!` it.
 
 ## quitguard
 
@@ -148,6 +154,8 @@ and `quitguard.ask(lines, verb)` shows them in a centred float and waits for one
 restarts, anything else (esc) keeps everything. Not `confirm()`, which adds lettered
 buttons, and not the message area: inside an fzf-lua action a scrolled multi-line message
 sits behind a press-enter that eats the first enter (measured).
+`require("no-tmux.quitguard").busy()` is the guard's own "what a quit would kill right now"
+(`""` when nothing) — the `:FzfConnect` kill prompt asks the target server for it.
 A headless instance cannot answer and never restarts over a terminal. `killed-jobs.txt`
 still keeps the record of what was killed.
 

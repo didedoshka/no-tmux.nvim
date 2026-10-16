@@ -177,6 +177,12 @@ local function describe(terms, tasks)
     return table.concat(parts, ", ")
 end
 
+-- what a quit would kill right now, "" when nothing: another server's kill
+-- prompt (the <CR> picker's ctrl-x) asks for it over --remote-expr
+function M.busy()
+    return describe(busy_terms(), running_liter_tasks())
+end
+
 function M.setup()
     local group = vim.api.nvim_create_augroup("quitguard", { clear = true })
 

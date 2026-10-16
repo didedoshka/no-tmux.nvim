@@ -181,9 +181,42 @@ function M.restart_other(s, done)
     end)
 end
 
+-- Kill another server, from the picker: ask first, naming what still runs
+-- there -- its quitguard's own list, through a client process with a timeout
+-- since a wedged server never answers (see detach_uis) -- then :qa! it,
+-- which its quitguard logs to killed-jobs.txt. Waits for the socket to go,
+-- so the picker's reload no longer lists it. Returns the picker's footer.
+local BUSY_EXPR = [[luaeval("require('no-tmux.quitguard').busy()")]]
+local function kill(label)
+    local path = vim.fs.joinpath(servers_dir(), encode(label))
+    local lines = { ("kill server %s?"):format(label) }
+    local busy = vim.system({ "nvim", "-u", "NONE", "--server", path, "--remote-expr", BUSY_EXPR },
+        { text = true, timeout = 1000 }):wait()
+    if busy.code == 0 and vim.trim(busy.stdout) ~= "" then
+        table.insert(lines, "  running: " .. vim.trim(busy.stdout))
+    end
+    if not require("no-tmux.quitguard").ask(lines, "kill") then
+        return nil
+    end
+    local connected, chan = pcall(vim.fn.sockconnect, "pipe", path, { rpc = true })
+    if not connected or chan == 0 then
+        -- nobody listens: a server that died without removing its socket
+        vim.uv.fs_unlink(path)
+        return "removed the dead socket of " .. label
+    end
+    -- g:quitguard_auto: a UI attached over there must not get a prompt
+    vim.rpcnotify(chan, "nvim_exec_lua", [[vim.g.quitguard_auto = 1; vim.cmd("qall!")]], {})
+    local gone = vim.wait(3000, function()
+        return not vim.uv.fs_stat(path)
+    end, 50)
+    pcall(vim.fn.chanclose, chan)
+    return gone and ("killed " .. label) or (label .. " did not quit")
+end
+
 -- The server list as an fzf-pin source: pins first (chars persisted globally
--- by project label -- sockets churn on restarts, labels do not), then the
--- other live servers. A free char pins the current server, ctrl-x unpins.
+-- by project label -- sockets churn on restarts, labels do not), then this
+-- server and the other live ones. A free char pins the highlighted server;
+-- ctrl-x unpins a pin and kills an unpinned server.
 M.source = {
     prompt = "servers> ",
     list = function()
@@ -203,6 +236,10 @@ M.source = {
                 or not live[label] and "  (down)" or ""
             table.insert(items, { label = label .. state, char = c, data = label })
         end
+        -- this server too, so a free char can pin it
+        if cur and not pinned[cur] then
+            table.insert(items, { label = cur .. "  (this)", data = cur })
+        end
         for _, s in ipairs(other_servers()) do
             if not pinned[s.label] then
                 table.insert(items, { label = s.label, data = s.label })
@@ -221,34 +258,33 @@ M.source = {
         end
         hop(path)
     end,
-    pin = function(char)
+    -- what pin and unpin return is the picker's footer: the window stays up
+    pin = function(char, item)
+        if not item then
+            return "nothing highlighted to pin"
+        end
+        if item.char then
+            return "already on " .. item.char .. " (ctrl-x it to move)"
+        end
         local store = require("fzf-pin.store")
-        local cur = current_label()
-        if not cur then
-            vim.notify("current server is not a no-tmux socket -- nothing to pin",
-                vim.log.levels.WARN)
-            return
-        end
         local pins = store.load("servers")
-        for c, label in pairs(pins) do
-            if label == cur then
-                vim.notify("already pinned on " .. c .. " (ctrl-x it to move)",
-                    vim.log.levels.WARN)
-                return
-            end
-        end
-        pins[char] = cur
+        pins[char] = item.data
         store.save("servers", pins)
-        vim.notify(("pinned %s to %s"):format(cur, char))
+        return ("pinned %s to %s"):format(item.data, char)
     end,
     unpin = function(item)
-        if not item.char then
-            return
+        if item.char then
+            local store = require("fzf-pin.store")
+            local pins = store.load("servers")
+            pins[item.char] = nil
+            store.save("servers", pins)
+            return nil
         end
-        local store = require("fzf-pin.store")
-        local pins = store.load("servers")
-        pins[item.char] = nil
-        store.save("servers", pins)
+        -- the picker itself runs in this server
+        if item.data == current_label() then
+            return "this is the server you are in: :qa! kills it"
+        end
+        return kill(item.data)
     end,
 }
 

@@ -244,23 +244,23 @@ do
     check("source: a pinned live server appears once, keyed",
         #items == 1 and items[1].char == "e" and items[1].label == "/data/project/x")
 
-    -- under --clean this instance's socket is not in the servers dir, so
-    -- pinning must refuse instead of storing a garbage label
-    local notified
-    local saved_notify = vim.notify
-    ---@diagnostic disable-next-line: duplicate-set-field
-    vim.notify = function(msg, _level, _opts)
-        notified = msg
-    end
-    source.pin("a")
-    vim.notify = saved_notify
-    check("source: pin refused outside a no-tmux socket",
-        notified ~= nil and notified:find("nothing to pin") ~= nil)
-    check("source: refused pin stored nothing", store.load("servers").a == nil)
+    -- a free char pins the highlighted server; the answer is the footer's
+    check("source: pin with nothing highlighted refuses",
+        source.pin("a", nil) == "nothing highlighted to pin")
+    check("source: a pinned server is not pinned twice",
+        source.pin("a", items[1]) == "already on e (ctrl-x it to move)")
+    check("source: refused pins stored nothing", store.load("servers").a == nil)
+    store.save("servers", {})
+    items = source.list()
+    check("source: pin stores the highlighted server",
+        source.pin("a", items[1]) == "pinned /data/project/x to a"
+            and store.load("servers").a == "/data/project/x")
+    store.save("servers", { e = "/data/project/x" })
 
     -- activating a down pin starts its server -- but never when the project
     -- directory itself is gone; spawning is e2e territory, the guard is not
-    notified = nil
+    local notified
+    local saved_notify = vim.notify
     ---@diagnostic disable-next-line: duplicate-set-field
     vim.notify = function(msg, _level, _opts)
         notified = msg
@@ -272,8 +272,11 @@ do
 
     check("source: unpin removes the char",
         source.unpin({ char = "e" }) == nil and store.load("servers").e == nil)
-    check("source: unpin on an unpinned entry is a no-op",
-        source.unpin({ label = "/data/project/x" }) == nil)
+    -- ctrl-x on an unpinned server kills it, once confirmed: headless has
+    -- nobody to ask, so nothing happens here (the kill itself is e2e)
+    check("source: an unconfirmed kill leaves the server",
+        source.unpin({ data = "/data/project/x" }) == nil
+            and vim.uv.fs_stat(vim.fs.joinpath(dir, "%data%project%x")) ~= nil)
 end
 
 -- The :q/:qa habit block. setup() above ran outside a server (v:servername is

@@ -11,6 +11,8 @@
 #   - nt's agent link refresh (fish), only from a real login with a live agent
 #   - quitguard letting a :restart quit through unprompted (a refusal would
 #     poison the UI's reattach order -- see the ExitPre comment)
+#   - the :FzfConnect source listing its own server, sparing it from ctrl-x,
+#     and killing another one with its running job named and logged
 # A real UI hop still needs a --remote-ui client -- see the verify skill.
 set -uo pipefail
 
@@ -270,6 +272,67 @@ check "session restored: split buffer" \
 # the respawned E is not in our pids list -- shut it down explicitly
 nvim --server "$sock_e" --remote-send ':qa!<CR>' 2>/dev/null
 nvim --server "$sock_d" --remote-send ':qa!<CR>' 2>/dev/null
+
+# --- <CR>'s kill: ctrl-x on an unpinned server --------------------------------
+# G (where the picker runs) and H (the target) share a home, so G sees H's
+# socket, and H runs a busy terminal. From G the source lists G itself as
+# (this) and refuses to kill it; H dies once the confirm says yes -- stubbed,
+# headless has no UI to answer -- and the confirm named H's running job.
+: "${FZF_PIN_DIR:?run via tests/run.sh e2e, which finds fzf-pin}"
+home_g="$tmp/g"
+mkdir -p "$home_g"
+sock_g="$home_g/cache/nvim/servers/%proj%g"
+sock_h="$home_g/cache/nvim/servers/%proj%h"
+start_server "$home_g" "$sock_g"
+start_server "$home_g" "$sock_h"
+cat > "$tmp/busy-h.lua" <<EOF
+local buf = vim.api.nvim_create_buf(true, false)
+vim.api.nvim_set_current_buf(buf)
+vim.fn.jobstart({ "sh", "-c", "sleep 30" }, { term = true })
+return 1
+EOF
+rlua "$sock_h" "$tmp/busy-h.lua"
+busy=0
+for _ in $(seq 50); do
+    [[ "$(rexpr "$sock_h" "luaeval('dofile(_A)', '$tmp/busy.lua')")" == "1" ]] && busy=1 && break
+    sleep 0.1
+done
+check "server H's terminal is busy" "$busy" "1"
+
+cat > "$tmp/kill-h.lua" <<EOF
+vim.opt.rtp:prepend("$FZF_PIN_DIR")
+local source = require("no-tmux.server").source
+local out = {}
+for _, item in ipairs(source.list()) do
+    table.insert(out, "item " .. item.label)
+end
+table.insert(out, "this: " .. tostring(source.unpin({ data = "/proj/g" })))
+local asked
+require("no-tmux.quitguard").ask = function(lines)
+    asked = table.concat(lines, " / ")
+    return true
+end
+table.insert(out, "kill: " .. tostring(source.unpin({ data = "/proj/h" })))
+table.insert(out, "asked: " .. tostring(asked))
+local f = assert(io.open("$tmp/kill-result", "w"))
+f:write(table.concat(out, "\n"))
+f:close()
+return 1
+EOF
+rlua "$sock_g" "$tmp/kill-h.lua"
+result="$(cat "$tmp/kill-result" 2>/dev/null)"
+check "the picker lists this server, marked" "$(grep -c '^item /proj/g  (this)$' <<<"$result")" "1"
+check "the picker lists the other server" "$(grep -c '^item /proj/h$' <<<"$result")" "1"
+check "this server is never killed from its own picker" "$(grep '^this: ' <<<"$result")" \
+    "this: this is the server you are in: :qa! kills it"
+check "the confirm names what runs there" \
+    "$(grep -c '^asked: kill server /proj/h? /   running: sleep$' <<<"$result")" "1"
+check "the kill reports the server gone" "$(grep '^kill: ' <<<"$result")" "kill: killed /proj/h"
+check "the killed server's socket is gone" "$([[ -e $sock_h ]] && echo yes)" ""
+check "the kill logged H's job to killed-jobs.txt" \
+    "$(grep -c sleep "$home_g/state/nvim/killed-jobs.txt" 2>/dev/null)" "1"
+check "server G is still up" "$(rexpr "$sock_g" 1)" "1"
+nvim --server "$sock_g" --remote-send ':qa!<CR>' 2>/dev/null
 
 # --- fish: nt's agent link refresh ---------------------------------------------
 # __nt_link_agent repoints ~/.ssh/no-tmux-agent.sock from a real login only.
